@@ -111,7 +111,7 @@ RedCl {α = α ⇒ β} R (wn ν R' , F) = wn ν (R ⁀ R') ,
 
 ⟦𝕊₂⟧ : Red (α ⇒ β ⇒ γ) A -> Red (α ⇒ β) B -> Red (α ⇒ γ) (𝕊 ∙ A ∙ B)
 ⟦𝕊₂⟧ ⟦A⟧@(wn ν₁ R₁ , F₁) ⟦B⟧@(wn ν₂ R₂ , F₂)
-    = wn (𝕊₂ ν₁ ν₂) (map appᵣ R₂ ⁀ map (appₗ ≫ appᵣ) R₁) , ⟦𝕊⟧ ⟦A⟧ ⟦B⟧
+    = wn (𝕊₂ ν₁ ν₂) (map appᵣ R₂ ⁀ map (appₗ ∘ appᵣ) R₁) , ⟦𝕊⟧ ⟦A⟧ ⟦B⟧
 
 ⟦𝕊₁⟧ : Red (α ⇒ β ⇒ γ) A -> Red ((α ⇒ β) ⇒ (α ⇒ γ)) (𝕊 ∙ A)
 ⟦𝕊₁⟧ ⟦A⟧@(wn ν R , F) = wn (𝕊₁ ν) (map appᵣ R) , ⟦𝕊₂⟧ ⟦A⟧
@@ -126,11 +126,11 @@ RedCl {α = α ⇒ β} R (wn ν R' , F) = wn ν (R ⁀ R') ,
 
 ⟦ℝ⟧ : Red ℕ A -> Red α B -> Red (α ⇒ α) C -> Red α (ℝ ∙ A ∙ B ∙ C)
 ⟦ℝ⟧ (wn (ℕ n) R) ⟦B⟧ ⟦C⟧ =
-    RedCl (map (appₗ ≫ appₗ ≫ appᵣ) R) (⟦ℝ n ⟧ ⟦B⟧ ⟦C⟧)
+    RedCl (map (appₗ ∘ appₗ ∘ appᵣ) R) (⟦ℝ n ⟧ ⟦B⟧ ⟦C⟧)
 
 ⟦ℝ₂⟧ : Red ℕ A -> Red α B -> Red ((α ⇒ α) ⇒ α) (ℝ ∙ A ∙ B)
 ⟦ℝ₂⟧ ⟦A⟧@(wn ν₁ R₁) ⟦B⟧ with reify ⟦B⟧
-... | wn ν₂ R₂ = wn (ℝ₂ ν₁ ν₂) (map appᵣ R₂ ⁀ map (appₗ ≫ appᵣ) R₁) , ⟦ℝ⟧ ⟦A⟧ ⟦B⟧
+... | wn ν₂ R₂ = wn (ℝ₂ ν₁ ν₂) (map appᵣ R₂ ⁀ map (appₗ ∘ appᵣ) R₁) , ⟦ℝ⟧ ⟦A⟧ ⟦B⟧
 
 ⟦ℝ₁⟧ : Red ℕ A -> Red (α ⇒ (α ⇒ α) ⇒ α) (ℝ ∙ A)
 ⟦ℝ₁⟧ ⟦A⟧@(wn ν R) = wn (ℝ₁ ν) (map appᵣ R) , ⟦ℝ₂⟧ ⟦A⟧
@@ -159,3 +159,7 @@ normalize A with reify ⟦ A ⟧
 
 _ : normalize (Mult ∙ # 100 ∙ # 100) ≡ # 10000
 _ = refl
+
+-- Recall that we defined Red in terms of WN. Actually, replacing WN with
+-- SN, the proof also works, except for some tweaks. This then proves the
+-- strong normalization theorem. It is left as an exercise for the reader.

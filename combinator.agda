@@ -72,7 +72,7 @@ data NF : Term α -> Set where
     𝕊₂ : NF A -> NF B -> NF (𝕊 ∙ A ∙ B)
 
 -- Next, we define reduction.
-infix 3 _~>_ _->₁_ _⟶_
+infix 3 _~>_ _⟶₁_ _⟶_
 -- _~>_ describes redexes, i.e. terms that can be reduced directly.
 data _~>_ : Term α -> Term α -> Prop where
     ℝ0 : ℝ ∙ O ∙ A ∙ B ~> A
@@ -80,20 +80,20 @@ data _~>_ : Term α -> Term α -> Prop where
     𝕂 : 𝕂 ∙ A ∙ B ~> A
     𝕊 : 𝕊 ∙ A ∙ B ∙ C ~> (A ∙ C) ∙ (B ∙ C)
 
--- _->₁_ describes single-step reductions.
-data _->₁_ {α} : Term α -> Term α -> Prop where
-    red : A ~> B -> A ->₁ B
-    appₗ : A ->₁ B -> A ∙ C ->₁ B ∙ C
-    appᵣ : A ->₁ B -> C ∙ A ->₁ C ∙ B
+-- _⟶₁_ describes single-step reductions.
+data _⟶₁_ {α} : Term α -> Term α -> Prop where
+    red : A ~> B -> A ⟶₁ B
+    appₗ : A ⟶₁ B -> A ∙ C ⟶₁ B ∙ C
+    appᵣ : A ⟶₁ B -> C ∙ A ⟶₁ C ∙ B
 
--- _⟶_ is the transitive closure of _->₁_.
+-- _⟶_ is the transitive closure of _⟶₁_.
 data _⟶_ {α} : Term α -> Term α -> Prop where
     refl : A ⟶ A
-    step : A ->₁ B -> B ⟶ C -> A ⟶ C
+    step : A ⟶₁ B -> B ⟶ C -> A ⟶ C
 
 -- Auxiliary functions:
 -- Corresponds to singleton lists, list concatenation and maps.
-single : A ->₁ B -> A ⟶ B
+single : A ⟶₁ B -> A ⟶ B
 single r = step r refl
 {-# INLINE single #-}
 
@@ -102,7 +102,7 @@ refl ⁀ R' = R'
 step r R ⁀ R' = step r (R ⁀ R')
 
 map : {F : Term α -> Term β}
-    -> (∀ {A B} -> (A ->₁ B) -> (F A ->₁ F B))
+    -> (∀ {A B} -> (A ⟶₁ B) -> (F A ⟶₁ F B))
     -> (∀ {A B} -> (A ⟶  B) -> (F A ⟶  F B))
 map f refl = refl
 map f (step r R) = step (f r) (map f R)
@@ -112,10 +112,15 @@ map f (step r R) = step (f r) (map f R)
 data WN (A : Term α) : Set where  -- Glue!
     wn : NF B -> A ⟶ B -> WN A
 
+-- SN A means "A is strongly normalizing", i.e. 𝑒𝑣𝑒𝑟𝑦 way to reduce A
+-- must eventually reach a normal form.
+data SN (A : Term α) : Set where
+    sn : (∀ {B} -> A ⟶ B -> SN B) -> SN A
+
 open import Function.Base using (_$_) public
 
-infixl 10 _≫_
-_≫_ : {P Q R : Prop}  -- _∘_ doesn't work on Props
+infixl 10 _∘_
+_∘_ : {P Q R : Prop}  -- The _∘_ from stdlib doesn't work on Props
     -> (P -> Q) -> (R -> P) -> (R -> Q)
-(f ≫ g) z = f (g z)
-{-# INLINE _≫_ #-}
+(f ∘ g) z = f (g z)
+{-# INLINE _∘_ #-}

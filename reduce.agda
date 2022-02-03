@@ -32,7 +32,7 @@ reduce (𝕊 ∙ A) with reduce A
 ... | wn ν R = wn (𝕊₁ ν) (map appᵣ R)
 reduce (𝕊 ∙ A ∙ B) with reduce A | reduce B
 ... | wn ν₁ R₁ | wn ν₂ R₂ = wn (𝕊₂ ν₁ ν₂)
-    (map (appₗ ≫ appᵣ) R₁ ⁀ map appᵣ R₂)
+    (map (appₗ ∘ appᵣ) R₁ ⁀ map appᵣ R₂)
 reduce (𝕊 ∙ A ∙ B ∙ C) with reduce (A ∙ C ∙ (B ∙ C))
 ... | wn ν R = wn ν (step (red 𝕊) R)
 
@@ -42,7 +42,7 @@ reduce (ℝ ∙ A) with reduce A
 ... | wn ν R = wn (ℝ₁ ν) (map appᵣ R)
 reduce (ℝ ∙ A ∙ B) with reduce A | reduce B
 ... | wn ν₁ R₁ | wn ν₂ R₂ = wn (ℝ₂ ν₁ ν₂)
-    (map (appₗ ≫ appᵣ) R₁ ⁀ map appᵣ R₂)
+    (map (appₗ ∘ appᵣ) R₁ ⁀ map appᵣ R₂)
 reduce (ℝ ∙ O ∙ A ∙ B) with reduce A
 ... | wn ν R = wn ν (step (red ℝ0) R)
 reduce (ℝ ∙ (S ∙ A) ∙ B ∙ C) with reduce (C ∙ (ℝ ∙ A ∙ B ∙ C))
