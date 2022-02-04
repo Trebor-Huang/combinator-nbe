@@ -8,7 +8,7 @@ data Type : Set where
     _⇒_ : Type -> Type -> Type
 infixr 10 _⇒_
 
-variable
+private variable
     α β γ : Type
     n : Nat
 
@@ -20,9 +20,9 @@ data Term : Type -> Set where
     𝕂 : Term (α ⇒ β ⇒ α)
     𝕊 : Term ((α ⇒ β ⇒ γ) ⇒ (α ⇒ β) ⇒ (α ⇒ γ))
     _∙_ : Term (α ⇒ β) -> Term α -> Term β
-infixl 9 _∙_
+infixl 16 _∙_
 
-variable
+private variable
     M N A B C : Term α
 
 -- Each natural number in Agda corresponds to a term S (S .. (S O))

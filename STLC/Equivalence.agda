@@ -1,5 +1,5 @@
 {-# OPTIONS --prop #-}
-module Equivalence where
+module STLC.Equivalence where
 open import Agda.Primitive
 open import Function.Base using (_$_; _∘_) public
 

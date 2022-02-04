@@ -6,6 +6,11 @@ open import Data.Product using (_×_; _,_; proj₂)
 
 open import combinator
 
+private variable
+    α β γ : Type
+    n : Nat
+    M N A B C : Term α
+
 -- We now take a differerent approach.
 -- Instead of blindly following the reduction rules, let's
 -- really find out what the combinator 𝑚𝑒𝑎𝑛𝑠.

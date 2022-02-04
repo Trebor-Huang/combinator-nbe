@@ -1,20 +1,16 @@
 {-# OPTIONS --prop --postfix-projections #-}
-module stlc where
+module STLC.stlc where
 open import Agda.Builtin.Equality using (_≡_; refl)
 
-open import Equivalence
-
-data Type : Set where
-    ℕ : Type
-    _⇒_ : Type -> Type -> Type
-infixr 10 _⇒_
+open import STLC.Equivalence
+open import combinator using (Type; ℕ; _⇒_)
 
 data Context : Set where
     ∅ : Context
     _◂_ : Context -> Type -> Context
 infixl 6 _◂_
 
-variable
+private variable
     α β γ : Type
     Γ Δ : Context
 
@@ -31,6 +27,12 @@ data Term : Context -> Type -> Set where
 infixr 15 ^_
 infixl 16 _∙_
 
+data SKI (Γ : Context) : Type -> Set where
+    var : Var Γ α -> SKI Γ α
+    𝔎 : SKI Γ (α ⇒ β ⇒ α)
+    𝔖 : SKI Γ ((α ⇒ β ⇒ γ) ⇒ (α ⇒ β) ⇒ (α ⇒ γ))
+    _∙_ : SKI Γ (α ⇒ β) -> SKI Γ α -> SKI Γ β
+
 𝕀 : Term Γ (α ⇒ α)
 𝕀 = ^ var 𝕫
 
@@ -39,6 +41,18 @@ infixl 16 _∙_
 
 𝕊 : Term Γ ((α ⇒ β ⇒ γ) ⇒ (α ⇒ β) ⇒ (α ⇒ γ))
 𝕊 = ^ ^ ^ (var (𝕤 𝕤 𝕫) ∙ var 𝕫) ∙ (var (𝕤 𝕫) ∙ var 𝕫)
+
+reader : SKI (Γ ◂ α) β -> SKI Γ (α ⇒ β)
+reader (var 𝕫) = 𝔖 ∙ 𝔎 ∙ (𝔎 {β = ℕ})
+reader (var (𝕤 v)) = 𝔎 ∙ var v
+reader 𝔎 = 𝔎 ∙ 𝔎
+reader 𝔖 = 𝔎 ∙ 𝔖
+reader (k ∙ k₁) = 𝔖 ∙ reader k ∙ reader k₁
+
+translate : Term Γ α -> SKI Γ α
+translate (var v) = var v
+translate (^ t) = reader (translate t)
+translate (t ∙ s) = translate t ∙ translate s
 
 variable
     s t u v : Term Γ α

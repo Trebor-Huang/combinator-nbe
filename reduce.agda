@@ -5,6 +5,11 @@ open import Agda.Builtin.Equality using (_≡_; refl)
 
 open import combinator
 
+private variable
+    α β γ : Type
+    n : Nat
+    M N A B C : Term α
+
 -- Defines big-step reduction semantics for our combinators.
 -- Read as a proposition: Every term is weakly normalizing.
 -- Read as a program: Reduces a term A to a normal form B,
