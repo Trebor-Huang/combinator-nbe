@@ -115,7 +115,7 @@ data WN (A : Term α) : Set where  -- Glue!
 -- SN A means "A is strongly normalizing", i.e. 𝑒𝑣𝑒𝑟𝑦 way to reduce A
 -- must eventually reach a normal form.
 data SN (A : Term α) : Set where
-    sn : (∀ {B} -> A ⟶ B -> SN B) -> SN A
+    sn : (∀ {B} -> A ⟶₁ B -> SN B) -> SN A
 
 open import Function.Base using (_$_) public
 
