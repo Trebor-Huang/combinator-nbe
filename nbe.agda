@@ -2,7 +2,8 @@
 module nbe where
 open import Agda.Builtin.Nat using (Nat; suc; zero)
 open import Agda.Builtin.Equality using (_≡_; refl)
-open import Data.Product using (_×_; _,_; proj₂)
+open import Data.Product using (_×_; _,_; proj₁; proj₂)
+open import Data.Unit using (⊤)
 
 open import combinator
 
@@ -81,18 +82,20 @@ private module Meaning where
 -- The word "reducible" comes from Tait. We also adopt the convention
 -- to use ⟦ M ⟧ to denote the interpretation of M
 Red : ∀ α -> Term α -> Set  -- Glue!
-Red ℕ A = WN A
-Red (α ⇒ β) A = WN A × ∀ {B} -> Red α B -> Red β (A ∙ B)
+Red α A = WN A × helper α A
+    where
+        helper : ∀ α -> Term α -> Set
+        helper ℕ A = ⊤
+        helper (α ⇒ β) A = ∀ {B} -> Red α B -> Red β (A ∙ B)
 
 -- We can easily extract the normal form now.
 reify : Red α A -> WN A
-reify {α = ℕ} Aʷ = Aʷ
-reify {α = α ⇒ β} (Aʷ , _) = Aʷ
+reify = proj₁
 
 -- A very interesting lemma: if A reduces to B, and B is reducible,
 -- then A is also reducible.
 RedCl : (A ⟶ B) -> Red α B -> Red α A
-RedCl {α = ℕ} R (wn ν R') = wn ν (R ⁀ R')
+RedCl {α = ℕ} R (wn ν R' , _) = wn ν (R ⁀ R') , _
 RedCl {α = α ⇒ β} R (wn ν R' , F) = wn ν (R ⁀ R') ,
     λ ⟦C⟧ -> RedCl (map appₗ R) (F ⟦C⟧)
 
@@ -130,21 +133,21 @@ RedCl {α = α ⇒ β} R (wn ν R' , F) = wn ν (R ⁀ R') ,
     ⟦C⟧ .proj₂ (⟦ℝ n ⟧ ⟦B⟧ ⟦C⟧)
 
 ⟦ℝ⟧ : Red ℕ A -> Red α B -> Red (α ⇒ α) C -> Red α (ℝ ∙ A ∙ B ∙ C)
-⟦ℝ⟧ (wn (ℕ n) R) ⟦B⟧ ⟦C⟧ =
+⟦ℝ⟧ (wn (ℕ n) R , _) ⟦B⟧ ⟦C⟧ =
     RedCl (map (appₗ ∘ appₗ ∘ appᵣ) R) (⟦ℝ n ⟧ ⟦B⟧ ⟦C⟧)
 
 ⟦ℝ₂⟧ : Red ℕ A -> Red α B -> Red ((α ⇒ α) ⇒ α) (ℝ ∙ A ∙ B)
-⟦ℝ₂⟧ ⟦A⟧@(wn ν₁ R₁) ⟦B⟧ with reify ⟦B⟧
+⟦ℝ₂⟧ ⟦A⟧@(wn ν₁ R₁ , _) ⟦B⟧ with reify ⟦B⟧
 ... | wn ν₂ R₂ = wn (ℝ₂ ν₁ ν₂) (map appᵣ R₂ ⁀ map (appₗ ∘ appᵣ) R₁) , ⟦ℝ⟧ ⟦A⟧ ⟦B⟧
 
 ⟦ℝ₁⟧ : Red ℕ A -> Red (α ⇒ (α ⇒ α) ⇒ α) (ℝ ∙ A)
-⟦ℝ₁⟧ ⟦A⟧@(wn ν R) = wn (ℝ₁ ν) (map appᵣ R) , ⟦ℝ₂⟧ ⟦A⟧
+⟦ℝ₁⟧ ⟦A⟧@(wn ν R , _) = wn (ℝ₁ ν) (map appᵣ R) , ⟦ℝ₂⟧ ⟦A⟧
 
 ⟦ℝ₀⟧ : Red (ℕ ⇒ α ⇒ (α ⇒ α) ⇒ α) ℝ
 ⟦ℝ₀⟧ = wn ℝ₀ refl , ⟦ℝ₁⟧
 
 ⟦S⟧ : Red ℕ A -> Red ℕ (S ∙ A)
-⟦S⟧ (wn (ℕ n) R) = wn (ℕ (suc n)) (map appᵣ R)
+⟦S⟧ (wn (ℕ n) R , _) = wn (ℕ (suc n)) (map appᵣ R) , _
 
 -- Finally, we collect everything together.
 -- Read as a theorem: Every term is reducible;
@@ -154,7 +157,7 @@ RedCl {α = α ⇒ β} R (wn ν R' , F) = wn ν (R ⁀ R') ,
 ⟦ 𝕂 ⟧ = ⟦𝕂₀⟧
 ⟦ 𝕊 ⟧ = ⟦𝕊₀⟧
 ⟦ ℝ ⟧ = ⟦ℝ₀⟧
-⟦ O ⟧ = wn (ℕ zero) refl
+⟦ O ⟧ = wn (ℕ zero) refl , _
 ⟦ S ⟧ = wn S₀ refl , ⟦S⟧
 
 -- We can also get a normalizing function that throws away the proof.
