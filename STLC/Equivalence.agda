@@ -1,7 +1,7 @@
 {-# OPTIONS --prop #-}
 module STLC.Equivalence where
 open import Agda.Primitive
-open import Function.Base using (_$_; _∘_) public
+open import Function.Base using (_$_; _∘_; id) public
 
 private variable
     ℓ ℓ' : Level

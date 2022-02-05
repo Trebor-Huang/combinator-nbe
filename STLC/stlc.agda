@@ -3,7 +3,7 @@ module STLC.stlc where
 open import Agda.Builtin.Equality using (_≡_; refl)
 
 open import STLC.Equivalence
-open import combinator using (Type; ℕ; _⇒_)
+open import combinator using (Type; ℕ; _⇒_) public
 
 data Context : Set where
     ∅ : Context
@@ -62,28 +62,37 @@ Renaming Γ Δ = ∀ {α} -> Var Γ α -> Var Δ α
 Substitution Γ Δ = ∀ {α} -> Var Γ α -> Term Δ α
 Function Γ Δ = ∀ {α} -> Term Γ α -> Term Δ α
 
-wren : Renaming Γ Δ -> Renaming (Γ ◂ α) (Δ ◂ α)
-wren ρ 𝕫 = 𝕫
-wren ρ (𝕤 v) = 𝕤 ρ v
+infixl 6 _◃ᵣ_
+_◃ᵣ_ : Renaming Γ Δ -> Var Δ α -> Renaming (Γ ◂ α) Δ
+(σ ◃ᵣ v) 𝕫 = v
+(σ ◃ᵣ _) (𝕤 v) = σ v
+
+wren : Renaming Γ Δ -> Renaming Γ (Δ ◂ α)
+wren ρ = 𝕤_ ∘ ρ
+{-# INLINE wren #-}
 
 ren : Renaming Γ Δ -> Function Γ Δ
 ren ρ (var v) = var (ρ v)
-ren ρ (^ t) = ^ ren (wren ρ) t
+ren ρ (^ t) = ^ ren (wren ρ ◃ᵣ 𝕫) t
 ren ρ (t ∙ s) = ren ρ t ∙ ren ρ s
 
-wsub : Substitution Γ Δ -> Substitution (Γ ◂ α) (Δ ◂ α)
-wsub σ 𝕫 = var 𝕫
-wsub σ (𝕤 v) = ren 𝕤_ (σ v)
+wsub : Substitution Γ Δ -> Substitution Γ (Δ ◂ α)
+wsub σ = ren 𝕤_ ∘ σ
+{-# INLINE wsub #-}
+
+infixl 6 _◃ₛ_
+_◃ₛ_ : Substitution Γ Δ -> Term Δ α -> Substitution (Γ ◂ α) Δ
+(σ ◃ₛ t) 𝕫 = t
+(σ ◃ₛ t) (𝕤 v) = σ v
 
 sub : Substitution Γ Δ -> Function Γ Δ
 sub σ (var v) = σ v
-sub σ (^ t) = ^ sub (wsub σ) t
+sub σ (^ t) = ^ sub (wsub σ ◃ₛ var 𝕫) t
 sub σ (t ∙ s) = sub σ t ∙ sub σ s
 
 infix 10 𝕫:=_
 𝕫:=_ : Term Γ α -> Substitution (Γ ◂ α) Γ
-(𝕫:= t) 𝕫 = t
-(𝕫:= t) (𝕤 v) = var v
+𝕫:= t = var ◃ₛ t
 
 data Neutral : Term Γ α -> Set
 data Normal : Term Γ α -> Set
@@ -111,18 +120,6 @@ infixl 16 _~∙_ _∙~_
 _≈_ : Term Γ α -> Term Γ α -> Prop
 _≈_ = Equivalence _~>_
 {-# DISPLAY Equivalence _~>_ = _≈_ #-}
-
-_ : 𝕊 {Γ = Γ} {α = α} ∙ 𝕂 ∙ 𝕂 {β = β} ≈ 𝕊 ∙ 𝕂 ∙ 𝕀
-_ = red β! ~∙ _     ⟶
-    red β!          ⟶
-    ^ red β! ~∙ _   ⟶
-    ^ red β!        ⟶
-
-    ^ red β!        ⟵
-    ^ red β! ~∙ _   ⟵
-    red β!          ⟵
-    red β! ~∙ _     ⟵
-    refl
 
 record WN (t : Term Γ α) : Set where
     constructor wn
