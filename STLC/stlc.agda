@@ -1,7 +1,5 @@
 {-# OPTIONS --prop --postfix-projections #-}
 module STLC.stlc where
-open import Agda.Builtin.Equality using (_≡_; refl)
-
 open import STLC.Equivalence
 open import combinator using (Type; ℕ; _⇒_) public
 
