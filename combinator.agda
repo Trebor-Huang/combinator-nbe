@@ -16,7 +16,7 @@ private variable
 data Term : Type -> Set where
     O : Term ℕ
     S : Term (ℕ ⇒ ℕ)
-    ℝ : Term (ℕ ⇒ α ⇒ (α ⇒ α) ⇒ α)
+    ℝ : Term (ℕ ⇒ α ⇒ (ℕ ⇒ α ⇒ α) ⇒ α)
     𝕂 : Term (α ⇒ β ⇒ α)
     𝕊 : Term ((α ⇒ β ⇒ γ) ⇒ (α ⇒ β) ⇒ (α ⇒ γ))
     _∙_ : Term (α ⇒ β) -> Term α -> Term β
@@ -45,10 +45,13 @@ private variable
 
 -- Using ℝ we can construct arithmetical functions:
 Add : Term (ℕ ⇒ ℕ ⇒ ℕ)
-Add = 𝕊 ∙ (𝕊 ∙ (𝕂 ∙ 𝕊) ∙ ℝ) ∙ (𝕂 ∙ (𝕂 ∙ S))
+Add = 𝕊 ∙ (𝕊 ∙ (𝕂 ∙ 𝕊) ∙ ℝ) ∙ (𝕂 ∙ (𝕂 ∙ (𝕂 ∙ S)))
 
 Mult : Term (ℕ ⇒ ℕ ⇒ ℕ)
-Mult = 𝕊 ∙ (𝕊 ∙ (𝕂 ∙ 𝕊) ∙ (𝕊 ∙ (𝕂 ∙ 𝕂) ∙ (ℂ ∙ ℝ ∙ O))) ∙ (𝕂 ∙ Add)
+Mult = 𝕊 ∙ (𝕂 ∙ (𝕊 ∙ (𝕊 ∙ ℝ ∙ (𝕂 ∙ O)))) ∙ (𝕊 ∙ (𝕂 ∙ 𝕂) ∙ (𝕊 ∙ (𝕂 ∙ 𝕂) ∙ Add))
+
+Fact : Term (ℕ ⇒ ℕ)
+Fact = 𝕊 ∙ (𝕊 ∙ ℝ ∙ (𝕂 ∙ (S ∙ O))) ∙ (𝕂 ∙ (𝕊 ∙ (𝕂 ∙ Mult) ∙ S))
 
 -- We need to define a set of normal forms.
 -- NF M means "M is in normal form".
@@ -76,7 +79,7 @@ infix 3 _~>_ _⟶₁_ _⟶_
 -- _~>_ describes redexes, i.e. terms that can be reduced directly.
 data _~>_ : Term α -> Term α -> Prop where
     ℝ0 : ℝ ∙ O ∙ A ∙ B ~> A
-    ℝS : ℝ ∙ (S ∙ A) ∙ B ∙ C ~> C ∙ (ℝ ∙ A ∙ B ∙ C)
+    ℝS : ℝ ∙ (S ∙ A) ∙ B ∙ C ~> C ∙ A ∙ (ℝ ∙ A ∙ B ∙ C)
     𝕂 : 𝕂 ∙ A ∙ B ~> A
     𝕊 : 𝕊 ∙ A ∙ B ∙ C ~> (A ∙ C) ∙ (B ∙ C)
 

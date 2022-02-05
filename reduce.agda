@@ -14,6 +14,8 @@ private variable
 -- Read as a proposition: Every term is weakly normalizing.
 -- Read as a program: Reduces a term A to a normal form B,
 --    with proof that A reduces to B.
+-- This is quite standard, except that we also need to compute
+-- a proof alongside the normal form.
 
 {-# TERMINATING #-}
 reduce : (A : Term α) -> WN A
@@ -50,7 +52,7 @@ reduce (ℝ ∙ A ∙ B) with reduce A | reduce B
     (map (appₗ ∘ appᵣ) R₁ ⁀ map appᵣ R₂)
 reduce (ℝ ∙ O ∙ A ∙ B) with reduce A
 ... | wn ν R = wn ν (step (red ℝ0) R)
-reduce (ℝ ∙ (S ∙ A) ∙ B ∙ C) with reduce (C ∙ (ℝ ∙ A ∙ B ∙ C))
+reduce (ℝ ∙ (S ∙ A) ∙ B ∙ C) with reduce (C ∙ A ∙ (ℝ ∙ A ∙ B ∙ C))
 ... | wn ν R = wn ν (step (red ℝS) R)
 
 reduce (A ∙ B) with reduce A
@@ -62,5 +64,5 @@ normalize : Term α -> Term α
 normalize A with reduce A
 ... | wn {B = B} _ _ = B
 
-_ : normalize (Mult ∙ # 100 ∙ # 100) ≡ # 10000
+_ : normalize (Fact ∙ # 6) ≡ # 720
 _ = refl

@@ -30,11 +30,11 @@ private module Meaning where
     interpret : Term α -> Meaning α
     interpret O = zero
     interpret S = suc
-    interpret ℝ = iterate
-        where  -- The familiar iterate function.
-            iterate : ∀ {A : Set} -> Nat -> A -> (A -> A) -> A
-            iterate zero a f = a
-            iterate (suc n) a f = f (iterate n a f)
+    interpret ℝ = rec
+        where
+            rec : ∀ {A : Set} -> Nat -> A -> (Nat -> A -> A) -> A
+            rec zero a f = a
+            rec (suc n) a f = f n (rec n a f)
     interpret 𝕂 = λ z _ -> z
     interpret 𝕊 = λ x y z -> x z (y z)
     interpret (M ∙ N) = interpret M (interpret N)
@@ -99,13 +99,25 @@ RedCl {α = ℕ} R (wn ν R' , _) = wn ν (R ⁀ R') , _
 RedCl {α = α ⇒ β} R (wn ν R' , F) = wn ν (R ⁀ R') ,
     λ ⟦C⟧ -> RedCl (map appₗ R) (F ⟦C⟧)
 
+-- The easy ones first.
+⟦#_⟧ : ∀ n -> Red ℕ (# n)
+⟦# n ⟧ = wn (ℕ n) refl , _  -- Agda can easily work out all these.
+
+⟦S⟧ : Red ℕ A -> Red ℕ (S ∙ A)
+⟦S⟧ (wn (ℕ n) R , _) = wn (ℕ (suc n)) (map appᵣ R) , _
+
+-- The interpretation of 𝕂 is also simple, we invoke the lemma.
+-- Since (𝕂 ∙ A ∙ B) just reduces to A, so according to RedCl
+-- we just need to prove that A is reducible; which is the assumption.
 ⟦𝕂⟧ : Red α A -> Red β B -> Red α (𝕂 ∙ A ∙ B)
 ⟦𝕂⟧ ⟦A⟧ ⟦B⟧ = RedCl (single (red 𝕂)) ⟦A⟧
 
+-- Now for partially applied 𝕂, we just need to make use of the previous case.
 ⟦𝕂₁⟧ : Red α A -> Red (β ⇒ α) (𝕂 ∙ A)
 ⟦𝕂₁⟧ ⟦A⟧ with reify ⟦A⟧
 ... | wn ν R = wn (𝕂₁ ν) (map appᵣ R) , ⟦𝕂⟧ ⟦A⟧
 
+-- Similarly for unapplied 𝕂.
 ⟦𝕂₀⟧ : Red (α ⇒ β ⇒ α) 𝕂
 ⟦𝕂₀⟧ = wn 𝕂₀ refl , ⟦𝕂₁⟧
 
@@ -116,6 +128,9 @@ RedCl {α = α ⇒ β} R (wn ν R' , F) = wn ν (R ⁀ R') ,
 ⟦𝕊⟧ ⟦A⟧ ⟦B⟧ ⟦C⟧ = RedCl (single (red 𝕊)) $
     (⟦A⟧ .proj₂ ⟦C⟧) .proj₂ (⟦B⟧ .proj₂ ⟦C⟧)
 -- See how everything passes though without the need for the TERMINATING pragma?
+-- The interpretation of ⟦A⟧ includes a function that maps
+-- every C to the interpretation of (A ∙ C), and we just need
+-- to use .proj₂ to fetch it.
 
 ⟦𝕊₂⟧ : Red (α ⇒ β ⇒ γ) A -> Red (α ⇒ β) B -> Red (α ⇒ γ) (𝕊 ∙ A ∙ B)
 ⟦𝕊₂⟧ ⟦A⟧@(wn ν₁ R₁ , F₁) ⟦B⟧@(wn ν₂ R₂ , F₂)
@@ -127,27 +142,28 @@ RedCl {α = α ⇒ β} R (wn ν R' , F) = wn ν (R ⁀ R') ,
 ⟦𝕊₀⟧ : Red ((α ⇒ β ⇒ γ) ⇒ (α ⇒ β) ⇒ (α ⇒ γ)) 𝕊
 ⟦𝕊₀⟧ = wn 𝕊₀ refl , ⟦𝕊₁⟧
 
-⟦ℝ_⟧ : ∀ n -> Red α B -> Red (α ⇒ α) C -> Red α (ℝ ∙ (# n) ∙ B ∙ C)
+-- Now for the recursion operator. We first deal with the case
+-- where the natural number argument is alreadly calculated.
+⟦ℝ_⟧ : ∀ n -> Red α B -> Red (ℕ ⇒ α ⇒ α) C -> Red α (ℝ ∙ (# n) ∙ B ∙ C)
 ⟦ℝ zero ⟧ ⟦B⟧ ⟦C⟧ = RedCl (single (red ℝ0)) ⟦B⟧
 ⟦ℝ suc n ⟧ ⟦B⟧ ⟦C⟧ = RedCl (single (red ℝS)) $
-    ⟦C⟧ .proj₂ (⟦ℝ n ⟧ ⟦B⟧ ⟦C⟧)
+    ⟦C⟧ .proj₂ ⟦# n ⟧ .proj₂ (⟦ℝ n ⟧ ⟦B⟧ ⟦C⟧)
 
-⟦ℝ⟧ : Red ℕ A -> Red α B -> Red (α ⇒ α) C -> Red α (ℝ ∙ A ∙ B ∙ C)
+-- The case where A may be neutral.
+⟦ℝ⟧ : Red ℕ A -> Red α B -> Red (ℕ ⇒ α ⇒ α) C -> Red α (ℝ ∙ A ∙ B ∙ C)
 ⟦ℝ⟧ (wn (ℕ n) R , _) ⟦B⟧ ⟦C⟧ =
     RedCl (map (appₗ ∘ appₗ ∘ appᵣ) R) (⟦ℝ n ⟧ ⟦B⟧ ⟦C⟧)
 
-⟦ℝ₂⟧ : Red ℕ A -> Red α B -> Red ((α ⇒ α) ⇒ α) (ℝ ∙ A ∙ B)
+
+⟦ℝ₂⟧ : Red ℕ A -> Red α B -> Red ((ℕ ⇒ α ⇒ α) ⇒ α) (ℝ ∙ A ∙ B)
 ⟦ℝ₂⟧ ⟦A⟧@(wn ν₁ R₁ , _) ⟦B⟧ with reify ⟦B⟧
 ... | wn ν₂ R₂ = wn (ℝ₂ ν₁ ν₂) (map appᵣ R₂ ⁀ map (appₗ ∘ appᵣ) R₁) , ⟦ℝ⟧ ⟦A⟧ ⟦B⟧
 
-⟦ℝ₁⟧ : Red ℕ A -> Red (α ⇒ (α ⇒ α) ⇒ α) (ℝ ∙ A)
+⟦ℝ₁⟧ : Red ℕ A -> Red (α ⇒ (ℕ ⇒ α ⇒ α) ⇒ α) (ℝ ∙ A)
 ⟦ℝ₁⟧ ⟦A⟧@(wn ν R , _) = wn (ℝ₁ ν) (map appᵣ R) , ⟦ℝ₂⟧ ⟦A⟧
 
-⟦ℝ₀⟧ : Red (ℕ ⇒ α ⇒ (α ⇒ α) ⇒ α) ℝ
+⟦ℝ₀⟧ : Red (ℕ ⇒ α ⇒ (ℕ ⇒ α ⇒ α) ⇒ α) ℝ
 ⟦ℝ₀⟧ = wn ℝ₀ refl , ⟦ℝ₁⟧
-
-⟦S⟧ : Red ℕ A -> Red ℕ (S ∙ A)
-⟦S⟧ (wn (ℕ n) R , _) = wn (ℕ (suc n)) (map appᵣ R) , _
 
 -- Finally, we collect everything together.
 -- Read as a theorem: Every term is reducible;
@@ -157,7 +173,7 @@ RedCl {α = α ⇒ β} R (wn ν R' , F) = wn ν (R ⁀ R') ,
 ⟦ 𝕂 ⟧ = ⟦𝕂₀⟧
 ⟦ 𝕊 ⟧ = ⟦𝕊₀⟧
 ⟦ ℝ ⟧ = ⟦ℝ₀⟧
-⟦ O ⟧ = wn (ℕ zero) refl , _
+⟦ O ⟧ = ⟦# 0 ⟧
 ⟦ S ⟧ = wn S₀ refl , ⟦S⟧
 
 -- We can also get a normalizing function that throws away the proof.
@@ -165,7 +181,7 @@ normalize : Term α -> Term α
 normalize A with reify ⟦ A ⟧
 ... | wn {B = B} _ _ = B
 
-_ : normalize (Mult ∙ # 100 ∙ # 100) ≡ # 10000
+_ : normalize (Fact ∙ # 6) ≡ # 720
 _ = refl
 
 -- Recall that we defined Red in terms of WN. Actually, replacing WN with
