@@ -10,3 +10,7 @@ terminates.
 - `nbe.agda` uses normalization by evaluation. Apart from being slightly faster
 (I cannot measure accurately, but it seems to be around 2x faster), it also
 convinces Agda that the process terminates.
+
+There's also a folder with the complete beta-eta normalization for simply
+typed lambda calculus. However since my filesystem is case insensitive, you
+may need to adjust some of the filenames.
