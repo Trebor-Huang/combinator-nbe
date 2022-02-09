@@ -1,4 +1,4 @@
-{-# OPTIONS --prop --postfix-projections #-}
+{-# OPTIONS --prop --postfix-projections --safe #-}
 module STLC.nbe where
 open import Agda.Builtin.Equality using (_≡_; refl)
 open import Data.Product using (Σ; _×_; _,_; proj₁; proj₂)
@@ -7,8 +7,6 @@ open import Data.Unit using (⊤)
 open import STLC.Equivalence
 open import STLC.stlc
 open import STLC.substitution
-
-open import Agda.Builtin.TrustMe
 
 open WN using (nf; NF; Conv)
 
@@ -32,10 +30,15 @@ Neutral-ren ρ (ν ∙ ν') = Neutral-ren ρ ν ∙ Normal-ren ρ ν'
 
 -- Renaming also preserves reduction.
 ~>-ren : (ρ : Renaming Γ Δ) -> s ~> t -> ren ρ s ~> ren ρ t
-~>-ren ρ (red β!) = {! β!  !}
--- sub (var ◃ₛ ren ρ t) (ren (wren ρ ◃ᵣ 𝕫) s) = ren ρ (sub (var ◃ₛ t) s)
-~>-ren ρ (red η!) = {! η!  !}
--- ren (wren ρ ◃ᵣ 𝕫) (ren 𝕤_ s) = ren 𝕤_ (ren ρ s)
+~>-ren ρ (red (β! {t = t} {s = s}))
+    rewrite ren-sub ρ (𝕫:= s) t
+        = red {! sub-ren (𝕫:= ren ρ s) (wren ρ ◃ᵣ 𝕫) t  !}
+        where
+            r : (^ ren (wren ρ ◃ᵣ 𝕫) t) ∙ ren ρ s ~>!
+                sub (𝕫:= ren ρ s) (ren (wren ρ ◃ᵣ 𝕫) t)
+            r = β!
+~>-ren {s = s} ρ (red (η! {α = α}))
+    rewrite wren-𝕤 ρ {β = α} s = red η!
 ~>-ren ρ (^ r) = ^ ~>-ren (wren ρ ◃ᵣ 𝕫) r
 ~>-ren ρ (r ~∙ _) = ~>-ren ρ r ~∙ _
 ~>-ren ρ (_ ∙~ r) = _ ∙~ ~>-ren ρ r
@@ -86,7 +89,8 @@ SubstRed σ = ∀ {α} (v : Var _ α) -> Red (σ v)
     where
         eq : (sub (var ◃ₛ s) $ ren (wren ρ ◃ᵣ 𝕫) $ sub (wsub σ₀ ◃ₛ var 𝕫) t)
             ≡ sub (ren ρ ∘ σ₀ ◃ₛ s) t
-        eq = primTrustMe
+        eq rewrite ren-sub (wren ρ ◃ᵣ 𝕫) (wsub σ₀ ◃ₛ var 𝕫) t
+            = {!   !}
 
         expr : Red (sub (ren ρ ∘ σ₀ ◃ₛ s) t)
         expr = ⟦ t ⟧ λ
@@ -111,6 +115,6 @@ Red-id v = reflect (var v)
 normalize : Term Γ α -> Term Γ α
 normalize t = reify (⟦ t ⟧ Red-id) .nf
 
-example : Term (∅ ◂ ℕ ⇒ ℕ) (ℕ ⇒ ℕ)
-example = var 𝕫
+bench-example : Term (∅ ◂ ℕ ⇒ ℕ ⇒ ℕ) (ℕ ⇒ ℕ)
+bench-example = normalize (^ var (𝕤 𝕫) ∙ var 𝕫 ∙ var 𝕫)
 

@@ -1,4 +1,4 @@
-{-# OPTIONS --prop #-}
+{-# OPTIONS --prop --safe #-}
 module combinator where
 open import Agda.Builtin.Nat using (Nat; suc; zero)
 

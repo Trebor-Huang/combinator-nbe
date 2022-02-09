@@ -1,4 +1,4 @@
-{-# OPTIONS --prop #-}
+{-# OPTIONS --prop --safe #-}
 module STLC.Equivalence where
 open import Agda.Primitive
 open import Function.Base using (_$_; _∘_; id) public

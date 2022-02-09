@@ -1,4 +1,4 @@
-{-# OPTIONS --prop --postfix-projections #-}
+{-# OPTIONS --prop --postfix-projections --safe #-}
 module STLC.stlc where
 open import STLC.Equivalence
 open import combinator using (Type; ℕ; _⇒_) public
@@ -105,8 +105,10 @@ data Normal where
 
 infix 3 _~>!_ _~>_ _≈_
 data _~>!_ : Term Γ α -> Term Γ α -> Prop where
-    β! : (^ t) ∙ s ~>! sub (𝕫:= s) t
-    η! : t ~>! ^ ren 𝕤_ t ∙ var 𝕫
+    β! : {t : Term (Γ ◂ α) β} {s : Term Γ α}
+        -> (^ t) ∙ s ~>! sub (𝕫:= s) t
+    η! : {t : Term Γ (α ⇒ β)}
+        -> t ~>! ^ ren 𝕤_ t ∙ var 𝕫
 
 data _~>_ : Term Γ α -> Term Γ α -> Prop where
     red : s ~>! t -> s ~> t
