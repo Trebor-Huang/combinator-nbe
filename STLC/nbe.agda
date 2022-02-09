@@ -5,8 +5,8 @@ open import Data.Product using (Σ; _×_; _,_; proj₁; proj₂)
 open import Data.Unit using (⊤)
 
 open import STLC.Equivalence
-open import STLC.stlc
-open import STLC.substitution
+open import STLC.STLC
+open import STLC.Substitution
 
 open WN using (nf; NF; Conv)
 
@@ -23,10 +23,10 @@ Red {Γ = Γ} {α = α ⇒ β} t = ∀ {Δ} (ρ : Renaming Γ Δ) ->
 -- that renaming turns normal forms into normal forms.
 Neutral-ren : (ρ : Renaming Γ Δ) -> Neutral t -> Neutral (ren ρ t)
 Normal-ren : (ρ : Renaming Γ Δ) -> Normal t -> Normal (ren ρ t)
-Normal-ren ρ (ntr ν) = ntr (Neutral-ren ρ ν)
-Normal-ren ρ (^ ν) = ^ Normal-ren (wren ρ ◃ᵣ 𝕫) ν
 Neutral-ren ρ (var v) = var (ρ v)
 Neutral-ren ρ (ν ∙ ν') = Neutral-ren ρ ν ∙ Normal-ren ρ ν'
+Normal-ren ρ (ntr ν) = ntr (Neutral-ren ρ ν)
+Normal-ren ρ (^ ν) = ^ Normal-ren (wren ρ ◃ᵣ 𝕫) ν
 
 -- Renaming also preserves reduction.
 ~>-ren : (ρ : Renaming Γ Δ) -> s ~> t -> ren ρ s ~> ren ρ t
@@ -59,6 +59,8 @@ Neutral-ren ρ (ν ∙ ν') = Neutral-ren ρ ν ∙ Normal-ren ρ ν'
 --         take : Thinning Γ Δ -> Thinning (Γ ◂ α) (Δ ◂ α)
 --         drop : Thinning Γ Δ -> Thinning (Γ ◂ α)  Δ
 -- Exercise: Use Thinning to rewrite this file.
+-- Bonus Exercise: You can make it even cleaner with a maximally
+--    restricted type. Can you see how?
 
 WN-ren : (ρ : Renaming Γ Δ) -> WN t -> WN (ren ρ t)
 WN-ren ρ (wn ν R) = wn (Normal-ren ρ ν) (map (~>-ren ρ) R)
@@ -90,6 +92,8 @@ SubstRed σ = ∀ {α} (v : Var _ α) -> Red (σ v)
 ⟦_⟧ : ∀ (t : Term Γ α) {Δ} {σ : Substitution Γ Δ}
     -> SubstRed σ -> Red (sub σ t)
 ⟦ var v ⟧ σ = σ v
+⟦ t ∙ s ⟧ {σ = σ₀} σ
+    rewrite symm $ ren-id (sub σ₀ t) = (⟦ t ⟧ σ) id (⟦ s ⟧ σ)
 ⟦ ^ t ⟧ {σ = σ₀} σ ρ {s = s} F = Red-≈ (red β! ⟵ refl) ans
     where
         eq' : ∀ {α} (v : Var _ α)
@@ -118,20 +122,15 @@ SubstRed σ = ∀ {α} (v : Var _ α) -> Red (σ v)
         ans : Red (sub (var ◃ₛ s) $ ren (wren ρ ◃ᵣ 𝕫) $ sub (wsub σ₀ ◃ₛ var 𝕫) t)
         ans rewrite eq = expr
 
-⟦ t ∙ s ⟧ {σ = σ₀} σ = ans
-    where
-        eq : sub σ₀ t ≡ ren id (sub σ₀ t)
-        eq rewrite ren-id (sub σ₀ t) = refl
-
-        ans : Red (sub σ₀ t ∙ sub σ₀ s)
-        -- Some type prescription is needed to help Agda eta-expand
-        ans rewrite eq = (⟦ t ⟧ σ) id (⟦ s ⟧ σ)
-
 Red-id : SubstRed {Γ = Γ} var
 Red-id v = reflect (var v)
 
 normalize : Term Γ α -> Term Γ α
 normalize t = reify (⟦ t ⟧ Red-id) .nf
 
-bench-example : Term (∅ ◂ ℕ ⇒ ℕ ⇒ ℕ) (ℕ ⇒ ℕ)
-bench-example = normalize (^ var (𝕤 𝕫) ∙ var 𝕫 ∙ var 𝕫)
+open benchmark
+
+nbe-eta = normalize bench-eta
+nbe-beta = normalize bench-beta  -- ^ ^ var 𝕫
+nbe-both = normalize bench-both  -- ^ ^ ^ var (𝕤 𝕤 𝕫) ∙ var (𝕤 𝕫) ∙ var 𝕫
+-- Normalize them to see the result!

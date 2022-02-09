@@ -1,9 +1,9 @@
 {-# OPTIONS --prop --postfix-projections --safe #-}
-module STLC.substitution where
+module STLC.Substitution where
 open import Agda.Builtin.Equality using (_≡_; refl)
 
 open import STLC.Equivalence
-open import STLC.stlc
+open import STLC.STLC
 
 -- open import Agda.Builtin.Equality.Erase
 
