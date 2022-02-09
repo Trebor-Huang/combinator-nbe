@@ -31,12 +31,17 @@ Neutral-ren ρ (ν ∙ ν') = Neutral-ren ρ ν ∙ Normal-ren ρ ν'
 -- Renaming also preserves reduction.
 ~>-ren : (ρ : Renaming Γ Δ) -> s ~> t -> ren ρ s ~> ren ρ t
 ~>-ren ρ (red (β! {t = t} {s = s}))
-    rewrite ren-sub ρ (𝕫:= s) t
-        = red {! sub-ren (𝕫:= ren ρ s) (wren ρ ◃ᵣ 𝕫) t  !}
+    rewrite ren-sub ρ (𝕫:= s) t = red r!
         where
-            r : (^ ren (wren ρ ◃ᵣ 𝕫) t) ∙ ren ρ s ~>!
-                sub (𝕫:= ren ρ s) (ren (wren ρ ◃ᵣ 𝕫) t)
-            r = β!
+            eq : sub (𝕫:= ren ρ s) (ren (wren ρ ◃ᵣ 𝕫) t) ≡
+                sub (ren ρ ∘ (𝕫:= s)) t
+            eq rewrite sub-ren (𝕫:= ren ρ s) (wren ρ ◃ᵣ 𝕫) t
+                = subᵉ (ren-𝕫:= ρ s) t
+
+            r! : (^ ren (wren ρ ◃ᵣ 𝕫) t) ∙ ren ρ s ~>!
+                sub (ren ρ ∘ (𝕫:= s)) t
+            r! rewrite symm eq = β!
+
 ~>-ren {s = s} ρ (red (η! {α = α}))
     rewrite wren-𝕤 ρ {β = α} s = red η!
 ~>-ren ρ (^ r) = ^ ~>-ren (wren ρ ◃ᵣ 𝕫) r
@@ -77,7 +82,7 @@ reflect {α = α ⇒ α₁} ν ρ F with reify F
 Red-ren : (ρ : Renaming Γ Δ) {t : Term Γ α} -> Red t -> Red (ren ρ t)
 Red-ren {α = ℕ} ρ F = WN-ren ρ F
 Red-ren {α = α ⇒ β} ρ {t = t} F ρ' {s = s} G
-    rewrite ren-comp ρ' ρ t = F (ρ' ∘ ρ) G
+    rewrite ren-ren ρ' ρ t = F (ρ' ∘ ρ) G
 
 SubstRed : Substitution Γ Δ -> Set
 SubstRed σ = ∀ {α} (v : Var _ α) -> Red (σ v)
@@ -87,10 +92,23 @@ SubstRed σ = ∀ {α} (v : Var _ α) -> Red (σ v)
 ⟦ var v ⟧ σ = σ v
 ⟦ ^ t ⟧ {σ = σ₀} σ ρ {s = s} F = Red-≈ (red β! ⟵ refl) ans
     where
-        eq : (sub (var ◃ₛ s) $ ren (wren ρ ◃ᵣ 𝕫) $ sub (wsub σ₀ ◃ₛ var 𝕫) t)
+        eq' : ∀ {α} (v : Var _ α)
+            -> sub (𝕫:= s)
+                (ren (wren ρ ◃ᵣ 𝕫) $
+                    (wsub σ₀ ◃ₛ var 𝕫) v)
+            ≡ (ren ρ ∘ σ₀ ◃ₛ s) v
+        eq' 𝕫 = refl
+        eq' (𝕤 v)
+            rewrite sub-ren (𝕫:= s) (wren ρ ◃ᵣ 𝕫) (wsub σ₀ v)
+            | sub-ren (𝕫:= s ∘ (wren ρ ◃ᵣ 𝕫)) 𝕤_ (σ₀ v)
+            | symm (sub-ren var ρ (σ₀ v))
+            = sub-var _
+
+        eq : (sub (𝕫:= s) $ ren (wren ρ ◃ᵣ 𝕫) $ sub (wsub σ₀ ◃ₛ var 𝕫) t)
             ≡ sub (ren ρ ∘ σ₀ ◃ₛ s) t
         eq rewrite ren-sub (wren ρ ◃ᵣ 𝕫) (wsub σ₀ ◃ₛ var 𝕫) t
-            = {!   !}
+            | sub-sub (𝕫:= s) (ren (wren ρ ◃ᵣ 𝕫) ∘ (wsub σ₀ ◃ₛ var 𝕫)) t
+            = subᵉ eq' t
 
         expr : Red (sub (ren ρ ∘ σ₀ ◃ₛ s) t)
         expr = ⟦ t ⟧ λ
@@ -117,4 +135,3 @@ normalize t = reify (⟦ t ⟧ Red-id) .nf
 
 bench-example : Term (∅ ◂ ℕ ⇒ ℕ ⇒ ℕ) (ℕ ⇒ ℕ)
 bench-example = normalize (^ var (𝕤 𝕫) ∙ var 𝕫 ∙ var 𝕫)
-

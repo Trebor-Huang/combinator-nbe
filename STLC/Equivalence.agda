@@ -1,6 +1,7 @@
 {-# OPTIONS --prop --safe #-}
 module STLC.Equivalence where
 open import Agda.Primitive
+open import Agda.Builtin.Equality
 open import Function.Base using (_$_; _∘_; id) public
 
 private variable
@@ -57,3 +58,6 @@ record Subset (A : Set ℓ) (B : A -> Prop ℓ') : Set (ℓ ⊔ ℓ') where
         object : A
         witness : B object
 syntax Subset A (λ a -> B) = [ a ∈ A ∣ B ]
+
+symm : a ≡ b -> b ≡ a
+symm refl = refl
