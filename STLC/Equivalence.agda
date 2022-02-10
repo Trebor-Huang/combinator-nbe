@@ -15,6 +15,7 @@ _⊚_ :  -- The _∘_ from stdlib doesn't work on Props
 (f ⊚ g) z = f (g z)
 {-# INLINE _⊚_ #-}
 
+-- We develop the theory of equivalence closures once and for all.
 data Equivalence {A : Set ℓ} (_~_ : A -> A -> Prop ℓ') : A -> A -> Prop (ℓ ⊔ ℓ') where
     refl : ∀ {a} -> Equivalence _~_ a a
     step : ∀ {a b c} -> a ~ b -> Equivalence _~_ b c -> Equivalence _~_ a c
@@ -29,12 +30,14 @@ private variable
     a b c : A
     _~_ _-_ : A -> A -> Prop ℓ
 
+-- Concatenation:
 _⁀_ : Equivalence _~_ a b -> Equivalence _~_ b c -> Equivalence _~_ a c
 refl ⁀ R' = R'
 step r R ⁀ R' = step r (R ⁀ R')
 back r R ⁀ R' = back r (R ⁀ R')
 infixl 5 _⁀_
 
+-- Reversal:
 _⁻¹ : Equivalence _~_ a b -> Equivalence _~_ b a
 R ⁻¹ = helper refl R
     where
@@ -46,6 +49,7 @@ R ⁻¹ = helper refl R
         helper R (back r R') = helper (step r R) R'
 infixl 20 _⁻¹
 
+-- Maps
 map : {f : A -> B} (F : ∀ {a b} -> a ~ b -> f a - f b)
     -> Equivalence _~_ a b -> Equivalence _-_ (f a) (f b)
 map F refl = refl

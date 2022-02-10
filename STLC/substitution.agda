@@ -13,7 +13,13 @@ private variable
     α β γ : Type
     Γ Δ Ξ : Context
 
+-- ren and sub accepts a function, but only depends on the values
+-- of the function at specific points. This allows us to avoid
+-- the function extensionality axiom.
 private
+    -- The pattern for these proofs:
+    -- First prove a lemma concerning weakenings such as wren and wsub.
+    -- Then use the lemma to make induction pass through.
     ren-auxᵉ : {ρ ρ' : Renaming Γ Δ}
         -> (eq : ∀ {α} (v : Var Γ α) -> ρ v ≡ ρ' v)
         -> ∀ {α} (v : Var (Γ ◂ β) α)
@@ -43,6 +49,9 @@ subᵉ eq (var v) = eq v
 subᵉ eq (^ t) rewrite subᵉ (sub-auxᵉ eq) t = refl
 subᵉ eq (t ∙ s) rewrite subᵉ eq t | subᵉ eq s = refl
 
+-- Renaming with the identity does nothing.
+-- Note that we always prove an "extensional" version of the lemma,
+-- and then instantiate it with the regular arguments.
 private
     ren-id-auxᵉ : {ρ : Renaming Γ Γ} (eq : ∀ {α} (v : Var Γ α) -> ρ v ≡ v)
         -> ∀ {β α} (v : Var (Γ ◂ β) α) -> (wren ρ ◃ᵣ 𝕫) v ≡ v
@@ -59,6 +68,7 @@ private
 ren-id : (t : Term Γ α) -> ren id t ≡ t
 ren-id = ren-idᵉ λ _ -> refl
 
+-- Substituting each variable for itself does nothing.
 private
     sub-var-auxᵉ : {σ : Substitution Γ Γ} (eq : ∀ {α} (v : Var Γ α) -> σ v ≡ var v)
         -> ∀ {β α} (v : Var (Γ ◂ β) α) -> (wsub σ ◃ₛ var 𝕫) v ≡ var v
@@ -75,6 +85,13 @@ private
 sub-var : (t : Term Γ α) -> sub var t ≡ t
 sub-var = sub-varᵉ λ _ -> refl
 
+-- Renaming interacts with 𝕫:=_
+ren-𝕫:= : (ρ : Renaming Γ Δ) (s : Term Γ α) (v : Var (Γ ◂ α) β)
+    -> (𝕫:= ren ρ s) ((wren ρ ◃ᵣ 𝕫) v) ≡ ren ρ ((𝕫:= s) v)
+ren-𝕫:= ρ s 𝕫 = refl
+ren-𝕫:= ρ s (𝕤 v) = refl
+
+-- Composing two renamings.
 private
     wren-ren-auxᵉ : (σ : Renaming Δ Ξ) (τ : Renaming Γ Δ) (σ∘τ : Renaming Γ Ξ)
         -> (∀ {α} (v : Var Γ α) -> σ (τ v) ≡ σ∘τ v)
@@ -97,12 +114,7 @@ ren-ren : (σ : Renaming Δ Ξ) (τ : Renaming Γ Δ) (t : Term Γ α)
     -> ren σ (ren τ t) ≡ ren (σ ∘ τ) t
 ren-ren σ τ = ren-renᵉ σ τ (σ ∘ τ) λ _ -> refl
 
-wren-𝕤 : ∀ (ρ : Renaming Γ Δ) {α β} (s : Term Γ α)
-    -> ren (wren ρ ◃ᵣ 𝕫) (ren 𝕤_ s) ≡ ren (𝕤_ {β = β}) (ren ρ s)
-wren-𝕤 ρ {β = β} s
-    rewrite ren-ren (wren ρ ◃ᵣ 𝕫) (𝕤_ {β = β}) s
-    | ren-ren (𝕤_ {β = β}) ρ s = refl
-
+-- Composing renamining with substitution.
 private
     ren-sub-auxᵉ : ∀ (ρ : Renaming Δ Ξ) (σ : Substitution Γ Δ)
         (renρ∘σ : Substitution Γ Ξ)
@@ -111,8 +123,16 @@ private
         -> ren (wren ρ ◃ᵣ 𝕫) ((wsub σ ◃ₛ var 𝕫) v) ≡
             (wsub renρ∘σ ◃ₛ var 𝕫) v
     ren-sub-auxᵉ ρ σ renρ∘σ eq 𝕫 = refl
-    ren-sub-auxᵉ ρ σ renρ∘σ eq {α = α} (𝕤 v)
-        rewrite wren-𝕤 ρ {β = α} (σ v) | eq v = refl
+    ren-sub-auxᵉ ρ σ renρ∘σ eq {α = α} (𝕤 v) =
+        begin
+            ren (wren ρ ◃ᵣ 𝕫) (wsub σ v)
+        ≡⟨ ren-ren _ _ (σ v) ⟩
+            ren (𝕤_ ∘ ρ) (σ v)
+        ≡˘⟨ ren-ren _ _ (σ v) ⟩
+            ren 𝕤_ (ren ρ (σ v))
+        ≡⟨ cong! (eq v) ⟩
+            ren 𝕤_ (renρ∘σ v)
+        ∎
 
     ren-subᵉ : (ρ : Renaming Δ Ξ) (σ : Substitution Γ Δ)
         -> (renρ∘σ : Substitution Γ Ξ)
@@ -135,6 +155,7 @@ ren-sub : (ρ : Renaming Δ Ξ) (σ : Substitution Γ Δ) (t : Term Γ α)
     -> ren ρ (sub σ t) ≡ sub (ren ρ ∘ σ) t
 ren-sub ρ σ = ren-subᵉ ρ σ (ren ρ ∘ σ) λ _ -> refl
 
+-- Composing substitution with renaming.
 private
     sub-ren-auxᵉ : (σ : Substitution Δ Ξ) (ρ : Renaming Γ Δ)
         -> (σ∘ρ : Substitution Γ Ξ)
@@ -166,11 +187,7 @@ sub-ren : (σ : Substitution Δ Ξ) (ρ : Renaming Γ Δ)
     -> sub σ (ren ρ t) ≡ sub (σ ∘ ρ) t
 sub-ren σ ρ = sub-renᵉ σ ρ (σ ∘ ρ) λ _ -> refl
 
-ren-𝕫:= : (ρ : Renaming Γ Δ) (s : Term Γ α) (v : Var (Γ ◂ α) β)
-    -> (𝕫:= ren ρ s) ((wren ρ ◃ᵣ 𝕫) v) ≡ ren ρ ((𝕫:= s) v)
-ren-𝕫:= ρ s 𝕫 = refl
-ren-𝕫:= ρ s (𝕤 v) = refl
-
+-- The final boss: Composing substitution with substitution.
 private
     sub-sub-auxᵉ : ∀ (τ : Substitution Δ Ξ) (σ : Substitution Γ Δ)
         (subτ∘σ : Substitution Γ Ξ)
