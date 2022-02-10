@@ -1,12 +1,15 @@
 {-# OPTIONS --prop --postfix-projections --safe #-}
-module STLC.nbe where
-open import Agda.Builtin.Equality using (_≡_; refl)
+module STLC.NbE where
 open import Data.Product using (Σ; _×_; _,_; proj₁; proj₂)
 open import Data.Unit using (⊤)
 
 open import STLC.Equivalence
 open import STLC.STLC
 open import STLC.Substitution
+
+open import Relation.Binary.PropositionalEquality
+open ≡-Reasoning
+open import Tactic.Cong
 
 open WN using (nf; NF; Conv)
 
@@ -16,7 +19,7 @@ private variable
 
 Red : Term Γ α -> Set
 Red {α = ℕ} t = WN t
-Red {Γ = Γ} {α = α ⇒ β} t = ∀ {Δ} (ρ : Renaming Γ Δ) ->
+Red {α = α ⇒ β} t = ∀ {Δ} (ρ : Renaming _ Δ) ->
     ∀ {s} -> Red s -> Red (ren ρ t ∙ s)
 
 -- Special status is given to renaming, because it has the good property
@@ -30,17 +33,22 @@ Normal-ren ρ (^ ν) = ^ Normal-ren (wren ρ ◃ᵣ 𝕫) ν
 
 -- Renaming also preserves reduction.
 ~>-ren : (ρ : Renaming Γ Δ) -> s ~> t -> ren ρ s ~> ren ρ t
-~>-ren ρ (red (β! {t = t} {s = s}))
-    rewrite ren-sub ρ (𝕫:= s) t = red r!
-        where
-            eq : sub (𝕫:= ren ρ s) (ren (wren ρ ◃ᵣ 𝕫) t) ≡
+~>-ren ρ (red (β! {t = t} {s = s})) = R
+    where
+        eq : _
+        eq =
+            begin
+                ren ρ (sub (𝕫:= s) t)
+            ≡⟨ ren-sub _ _ t ⟩
                 sub (ren ρ ∘ (𝕫:= s)) t
-            eq rewrite sub-ren (𝕫:= ren ρ s) (wren ρ ◃ᵣ 𝕫) t
-                = subᵉ (ren-𝕫:= ρ s) t
+            ≡˘⟨ subᵉ (ren-𝕫:= ρ s) t ⟩
+                sub ((var ◃ₛ ren ρ s) ∘ (wren ρ ◃ᵣ 𝕫)) t
+            ≡˘⟨ sub-ren _ _ t ⟩
+                sub (𝕫:= ren ρ s) (ren (wren ρ ◃ᵣ 𝕫) t)
+            ∎
 
-            r! : (^ ren (wren ρ ◃ᵣ 𝕫) t) ∙ ren ρ s ~>!
-                sub (ren ρ ∘ (𝕫:= s)) t
-            r! rewrite symm eq = β!
+        R : ren ρ ((^ t) ∙ s) ~> ren ρ (sub (𝕫:= s) t)
+        R rewrite eq = red β!
 
 ~>-ren {s = s} ρ (red (η! {α = α}))
     rewrite wren-𝕤 ρ {β = α} s = red η!
@@ -92,35 +100,47 @@ SubstRed σ = ∀ {α} (v : Var _ α) -> Red (σ v)
 ⟦_⟧ : ∀ (t : Term Γ α) {Δ} {σ : Substitution Γ Δ}
     -> SubstRed σ -> Red (sub σ t)
 ⟦ var v ⟧ σ = σ v
-⟦ t ∙ s ⟧ {σ = σ₀} σ
-    rewrite symm $ ren-id (sub σ₀ t) = (⟦ t ⟧ σ) id (⟦ s ⟧ σ)
-⟦ ^ t ⟧ {σ = σ₀} σ ρ {s = s} F = Red-≈ (red β! ⟵ refl) ans
+⟦ t ∙ s ⟧ {σ = σ₀} σ = subst (λ ⋆ -> Red (⋆ ∙ sub σ₀ s))
+    (ren-id (sub σ₀ t)) $
+    (⟦ t ⟧ σ) id (⟦ s ⟧ σ)
+⟦ ^ t ⟧ {σ = σ₀} σ ρ {s = s} F = Red-≈ (red β! ⟵ refl) G
     where
-        eq' : ∀ {α} (v : Var _ α)
-            -> sub (𝕫:= s)
-                (ren (wren ρ ◃ᵣ 𝕫) $
-                    (wsub σ₀ ◃ₛ var 𝕫) v)
-            ≡ (ren ρ ∘ σ₀ ◃ₛ s) v
-        eq' 𝕫 = refl
-        eq' (𝕤 v)
-            rewrite sub-ren (𝕫:= s) (wren ρ ◃ᵣ 𝕫) (wsub σ₀ v)
-            | sub-ren (𝕫:= s ∘ (wren ρ ◃ᵣ 𝕫)) 𝕤_ (σ₀ v)
-            | symm (sub-ren var ρ (σ₀ v))
-            = sub-var _
+        eqᵉ : (v : Var _ α)
+            -> (sub (𝕫:= s) ∘ ren (wren ρ ◃ᵣ 𝕫) ∘ (wsub σ₀ ◃ₛ var 𝕫)) v
+                ≡ (ren ρ ∘ σ₀ ◃ₛ s) v
+        eqᵉ 𝕫 = refl
+        eqᵉ (𝕤 v) =
+            begin
+                sub (𝕫:= s) (ren (wren ρ ◃ᵣ 𝕫) (wsub σ₀ v))
+            ≡⟨ sub-ren _ _ (wsub σ₀ v) ⟩
+                sub (𝕫:= s ∘ (wren ρ ◃ᵣ 𝕫)) (wsub σ₀ v)
+            ≡⟨ sub-ren _ _ (σ₀ v) ⟩
+                sub (var ∘ ρ) (σ₀ v)
+            ≡˘⟨ sub-ren _ _ (σ₀ v) ⟩
+                sub var (ren ρ (σ₀ v))
+            ≡⟨ sub-var _ ⟩
+                ren ρ (σ₀ v)
+            ∎
 
-        eq : (sub (𝕫:= s) $ ren (wren ρ ◃ᵣ 𝕫) $ sub (wsub σ₀ ◃ₛ var 𝕫) t)
-            ≡ sub (ren ρ ∘ σ₀ ◃ₛ s) t
-        eq rewrite ren-sub (wren ρ ◃ᵣ 𝕫) (wsub σ₀ ◃ₛ var 𝕫) t
-            | sub-sub (𝕫:= s) (ren (wren ρ ◃ᵣ 𝕫) ∘ (wsub σ₀ ◃ₛ var 𝕫)) t
-            = subᵉ eq' t
+        eq : _
+        eq =
+            begin
+                (sub (𝕫:= s) $ ren (wren ρ ◃ᵣ 𝕫) $ sub (wsub σ₀ ◃ₛ var 𝕫) t)
+            ≡⟨ cong! (ren-sub _ _ t) ⟩
+                sub (𝕫:= s) (sub (ren (wren ρ ◃ᵣ 𝕫) ∘ (wsub σ₀ ◃ₛ var 𝕫)) t)
+            ≡⟨ sub-sub _ _ t ⟩
+                sub (sub (𝕫:= s) ∘ ren (wren ρ ◃ᵣ 𝕫) ∘ (wsub σ₀ ◃ₛ var 𝕫)) t
+            ≡⟨ subᵉ eqᵉ t ⟩
+                sub (ren ρ ∘ σ₀ ◃ₛ s) t
+            ∎
 
-        expr : Red (sub (ren ρ ∘ σ₀ ◃ₛ s) t)
-        expr = ⟦ t ⟧ λ
+        G : Red
+            (sub (var ◃ₛ s) $
+                ren (wren ρ ◃ᵣ 𝕫) $
+                    sub (wsub σ₀ ◃ₛ var 𝕫) t)
+        G rewrite eq = ⟦ t ⟧ λ
             { 𝕫     -> F
             ; (𝕤 v) -> Red-ren ρ (σ v) }
-
-        ans : Red (sub (var ◃ₛ s) $ ren (wren ρ ◃ᵣ 𝕫) $ sub (wsub σ₀ ◃ₛ var 𝕫) t)
-        ans rewrite eq = expr
 
 Red-id : SubstRed {Γ = Γ} var
 Red-id v = reflect (var v)

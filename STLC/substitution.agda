@@ -5,10 +5,9 @@ open import Agda.Builtin.Equality using (_≡_; refl)
 open import STLC.Equivalence
 open import STLC.STLC
 
--- open import Agda.Builtin.Equality.Erase
-
-primEraseEquality : {A : Set} -> A -> A
-primEraseEquality a = a
+open import Relation.Binary.PropositionalEquality
+open ≡-Reasoning
+open import Tactic.Cong
 
 private variable
     α β γ : Type
@@ -58,7 +57,7 @@ private
     ren-idᵉ eq (t ∙ s) rewrite ren-idᵉ eq t | ren-idᵉ eq s = refl
 
 ren-id : (t : Term Γ α) -> ren id t ≡ t
-ren-id t = primEraseEquality (ren-idᵉ (λ _ -> refl) t)
+ren-id = ren-idᵉ λ _ -> refl
 
 private
     sub-var-auxᵉ : {σ : Substitution Γ Γ} (eq : ∀ {α} (v : Var Γ α) -> σ v ≡ var v)
@@ -74,7 +73,7 @@ private
     sub-varᵉ eq (t ∙ s) rewrite sub-varᵉ eq t | sub-varᵉ eq s = refl
 
 sub-var : (t : Term Γ α) -> sub var t ≡ t
-sub-var t = primEraseEquality (sub-varᵉ (λ _ -> refl) t)
+sub-var = sub-varᵉ λ _ -> refl
 
 private
     wren-ren-auxᵉ : (σ : Renaming Δ Ξ) (τ : Renaming Γ Δ) (σ∘τ : Renaming Γ Ξ)
@@ -96,18 +95,13 @@ private
 
 ren-ren : (σ : Renaming Δ Ξ) (τ : Renaming Γ Δ) (t : Term Γ α)
     -> ren σ (ren τ t) ≡ ren (σ ∘ τ) t
-ren-ren σ τ t = primEraseEquality (ren-renᵉ σ τ (σ ∘ τ) (λ _ -> refl) t)
-
-private
-    wren-𝕤-aux : ∀ (ρ : Renaming Γ Δ) {α β} (s : Term Γ α)
-        -> ren (wren ρ ◃ᵣ 𝕫) (ren 𝕤_ s) ≡ ren (𝕤_ {β = β}) (ren ρ s)
-    wren-𝕤-aux ρ {β = β} s
-        rewrite ren-ren (wren ρ ◃ᵣ 𝕫) (𝕤_ {β = β}) s
-        | ren-ren (𝕤_ {β = β}) ρ s = refl
+ren-ren σ τ = ren-renᵉ σ τ (σ ∘ τ) λ _ -> refl
 
 wren-𝕤 : ∀ (ρ : Renaming Γ Δ) {α β} (s : Term Γ α)
     -> ren (wren ρ ◃ᵣ 𝕫) (ren 𝕤_ s) ≡ ren (𝕤_ {β = β}) (ren ρ s)
-wren-𝕤 ρ s = primEraseEquality (wren-𝕤-aux ρ s)
+wren-𝕤 ρ {β = β} s
+    rewrite ren-ren (wren ρ ◃ᵣ 𝕫) (𝕤_ {β = β}) s
+    | ren-ren (𝕤_ {β = β}) ρ s = refl
 
 private
     ren-sub-auxᵉ : ∀ (ρ : Renaming Δ Ξ) (σ : Substitution Γ Δ)
@@ -139,7 +133,7 @@ private
 
 ren-sub : (ρ : Renaming Δ Ξ) (σ : Substitution Γ Δ) (t : Term Γ α)
     -> ren ρ (sub σ t) ≡ sub (ren ρ ∘ σ) t
-ren-sub ρ σ t = primEraseEquality (ren-subᵉ ρ σ (ren ρ ∘ σ) (λ _ -> refl) t)
+ren-sub ρ σ = ren-subᵉ ρ σ (ren ρ ∘ σ) λ _ -> refl
 
 private
     sub-ren-auxᵉ : (σ : Substitution Δ Ξ) (ρ : Renaming Γ Δ)
@@ -170,7 +164,7 @@ private
 sub-ren : (σ : Substitution Δ Ξ) (ρ : Renaming Γ Δ)
     -> (t : Term Γ α)
     -> sub σ (ren ρ t) ≡ sub (σ ∘ ρ) t
-sub-ren σ ρ t = primEraseEquality (sub-renᵉ σ ρ (σ ∘ ρ) (λ _ -> refl) t)
+sub-ren σ ρ = sub-renᵉ σ ρ (σ ∘ ρ) λ _ -> refl
 
 ren-𝕫:= : (ρ : Renaming Γ Δ) (s : Term Γ α) (v : Var (Γ ◂ α) β)
     -> (𝕫:= ren ρ s) ((wren ρ ◃ᵣ 𝕫) v) ≡ ren ρ ((𝕫:= s) v)
@@ -185,10 +179,16 @@ private
         -> sub (wsub τ ◃ₛ var 𝕫) ((wsub σ ◃ₛ var 𝕫) v) ≡
             (wsub subτ∘σ ◃ₛ var 𝕫) v
     sub-sub-auxᵉ τ σ subτ∘σ eq 𝕫 = refl
-    sub-sub-auxᵉ τ σ subτ∘σ eq {α} {β} (𝕤 v)
-        rewrite symm (eq v) 
-        | sub-ren (wsub τ ◃ₛ var (𝕫 {α = α})) 𝕤_ (σ v)
-        | ren-sub (𝕤_ {β = α}) τ (σ v) = refl
+    sub-sub-auxᵉ τ σ subτ∘σ eq (𝕤 v) =
+        begin  -- recall that (wsub σ v) is just (ren 𝕤_ (σ v)).
+            sub (wsub τ ◃ₛ var 𝕫) (wsub σ v)  -- So the ren-lemmas apply.
+        ≡⟨ sub-ren (wsub τ ◃ₛ var 𝕫) 𝕤_ (σ v) ⟩
+            sub (wsub τ) (σ v)
+        ≡˘⟨ ren-sub 𝕤_ τ (σ v) ⟩
+            ren 𝕤_ (sub τ (σ v))
+        ≡⟨ cong! (eq v) ⟩
+            ren 𝕤_ (subτ∘σ v)
+        ∎
 
     sub-subᵉ : (τ : Substitution Δ Ξ) (σ : Substitution Γ Δ)
         -> (subτ∘σ : Substitution Γ Ξ)
@@ -209,4 +209,4 @@ private
 
 sub-sub : (τ : Substitution Δ Ξ) (σ : Substitution Γ Δ) (t : Term Γ α)
     -> sub τ (sub σ t) ≡ sub (sub τ ∘ σ) t
-sub-sub τ σ t = primEraseEquality (sub-subᵉ τ σ (sub τ ∘ σ) (λ _ -> refl) t)
+sub-sub τ σ = sub-subᵉ τ σ (sub τ ∘ σ) λ _ -> refl
