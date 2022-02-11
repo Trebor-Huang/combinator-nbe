@@ -19,6 +19,8 @@ private variable
 
 {-# TERMINATING #-}
 reduce : (A : Term α) -> WN A
+reduceℝ : (A : Term α) (B : Term (ℕ ⇒ α ⇒ α)) (n : Nat)
+    -> WN (ℝ ∙ A ∙ B ∙ # n)
 
 -- Numerals
 reduce O = wn (ℕ zero) refl
@@ -50,19 +52,23 @@ reduce (ℝ ∙ A) with reduce A
 reduce (ℝ ∙ A ∙ B) with reduce A | reduce B
 ... | wn ν₁ R₁ | wn ν₂ R₂ = wn (ℝ₂ ν₁ ν₂)
     (map (appₗ ∘ appᵣ) R₁ ⁀ map appᵣ R₂)
-reduce (ℝ ∙ O ∙ A ∙ B) with reduce A
-... | wn ν R = wn ν (step (red ℝ0) R)
-reduce (ℝ ∙ (S ∙ A) ∙ B ∙ C) with reduce (C ∙ A ∙ (ℝ ∙ A ∙ B ∙ C))
-... | wn ν R = wn ν (step (red ℝS) R)
+reduce (ℝ ∙ B ∙ C ∙ A) with reduce A
+... | wn (ℕ n) R with reduceℝ B C n
+... | wn ν R' = wn ν (map appᵣ R ⁀ R')
 
 reduce (A ∙ B) with reduce A
 ... | wn {B = A'} _ R' with reduce (A' ∙ B)
 ... | wn ν R = wn ν (map appₗ R' ⁀ R)
+
+reduceℝ A B zero with reduce A
+... | wn ν R = wn ν (step (red ℝ0) R)
+reduceℝ A B (suc n) with reduce (B ∙ # n ∙ (ℝ ∙ A ∙ B ∙ # n))
+... | wn ν R = wn ν (step (red ℝS) R)
 
 -- fetches the normalized term, throwing away the proof.
 normalize : Term α -> Term α
 normalize A with reduce A
 ... | wn {B = B} _ _ = B
 
-_ : normalize (Fact ∙ # 6) ≡ # 720
+_ : normalize (Add ∙ # 30 ∙ # 30) ≡ # 60
 _ = refl

@@ -32,9 +32,9 @@ private module Meaning where
     interpret S = suc
     interpret ℝ = rec
         where
-            rec : ∀ {A : Set} -> Nat -> A -> (Nat -> A -> A) -> A
-            rec zero a f = a
-            rec (suc n) a f = f n (rec n a f)
+            rec : ∀ {A : Set} -> A -> (Nat -> A -> A) -> Nat -> A
+            rec a f zero = a
+            rec a f (suc n) = f n (rec a f n)
     interpret 𝕂 = λ z _ -> z
     interpret 𝕊 = λ x y z -> x z (y z)
     interpret (M ∙ N) = interpret M (interpret N)
@@ -144,25 +144,25 @@ RedCl {α = α ⇒ β} R (wn ν R' , F) = wn ν (R ⁀ R') ,
 
 -- Now for the recursion operator. We first deal with the case
 -- where the natural number argument is alreadly calculated.
-⟦ℝ_⟧ : ∀ n -> Red α B -> Red (ℕ ⇒ α ⇒ α) C -> Red α (ℝ ∙ (# n) ∙ B ∙ C)
+⟦ℝ_⟧ : ∀ n -> Red α B -> Red (ℕ ⇒ α ⇒ α) C -> Red α (ℝ ∙ B ∙ C ∙ (# n))
 ⟦ℝ zero ⟧ ⟦B⟧ ⟦C⟧ = RedCl (single (red ℝ0)) ⟦B⟧
 ⟦ℝ suc n ⟧ ⟦B⟧ ⟦C⟧ = RedCl (single (red ℝS)) $
     ⟦C⟧ .proj₂ ⟦# n ⟧ .proj₂ (⟦ℝ n ⟧ ⟦B⟧ ⟦C⟧)
 
 -- The case where A may be neutral.
-⟦ℝ⟧ : Red ℕ A -> Red α B -> Red (ℕ ⇒ α ⇒ α) C -> Red α (ℝ ∙ A ∙ B ∙ C)
-⟦ℝ⟧ (wn (ℕ n) R , _) ⟦B⟧ ⟦C⟧ =
-    RedCl (map (appₗ ∘ appₗ ∘ appᵣ) R) (⟦ℝ n ⟧ ⟦B⟧ ⟦C⟧)
+⟦ℝ⟧ : Red α B -> Red (ℕ ⇒ α ⇒ α) C -> Red ℕ A -> Red α (ℝ ∙ B ∙ C ∙ A)
+⟦ℝ⟧ ⟦B⟧ ⟦C⟧ (wn (ℕ n) R , _) =
+    RedCl (map appᵣ R) (⟦ℝ n ⟧ ⟦B⟧ ⟦C⟧)
 
 
-⟦ℝ₂⟧ : Red ℕ A -> Red α B -> Red ((ℕ ⇒ α ⇒ α) ⇒ α) (ℝ ∙ A ∙ B)
-⟦ℝ₂⟧ ⟦A⟧@(wn ν₁ R₁ , _) ⟦B⟧ with reify ⟦B⟧
-... | wn ν₂ R₂ = wn (ℝ₂ ν₁ ν₂) (map appᵣ R₂ ⁀ map (appₗ ∘ appᵣ) R₁) , ⟦ℝ⟧ ⟦A⟧ ⟦B⟧
+⟦ℝ₂⟧ : Red α B -> Red (ℕ ⇒ α ⇒ α) C -> Red (ℕ ⇒ α) (ℝ ∙ B ∙ C)
+⟦ℝ₂⟧ ⟦B⟧@(wn ν₁ R₁ , _) ⟦C⟧ with reify ⟦C⟧
+... | wn ν₂ R₂ = wn (ℝ₂ ν₁ ν₂) (map appᵣ R₂ ⁀ map (appₗ ∘ appᵣ) R₁) , ⟦ℝ⟧ ⟦B⟧ ⟦C⟧
 
-⟦ℝ₁⟧ : Red ℕ A -> Red (α ⇒ (ℕ ⇒ α ⇒ α) ⇒ α) (ℝ ∙ A)
+⟦ℝ₁⟧ : Red α A -> Red ((ℕ ⇒ α ⇒ α) ⇒ ℕ ⇒ α) (ℝ ∙ A)
 ⟦ℝ₁⟧ ⟦A⟧@(wn ν R , _) = wn (ℝ₁ ν) (map appᵣ R) , ⟦ℝ₂⟧ ⟦A⟧
 
-⟦ℝ₀⟧ : Red (ℕ ⇒ α ⇒ (ℕ ⇒ α ⇒ α) ⇒ α) ℝ
+⟦ℝ₀⟧ : Red (α ⇒ (ℕ ⇒ α ⇒ α) ⇒ ℕ ⇒ α) ℝ
 ⟦ℝ₀⟧ = wn ℝ₀ refl , ⟦ℝ₁⟧
 
 -- Finally, we collect everything together.
@@ -181,7 +181,7 @@ normalize : Term α -> Term α
 normalize A with reify ⟦ A ⟧
 ... | wn {B = B} _ _ = B
 
-_ : normalize (Fact ∙ # 6) ≡ # 720
+_ : normalize (Add ∙ # 30 ∙ # 30) ≡ # 60
 _ = refl
 
 -- Recall that we defined Red in terms of WN. Actually, replacing WN with

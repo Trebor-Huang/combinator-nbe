@@ -9,14 +9,17 @@ data Type : Set where
 infixr 10 _⇒_
 
 private variable
-    α β γ : Type
+    α β γ δ : Type
     n : Nat
 
 -- Now the combinators.
 data Term : Type -> Set where
     O : Term ℕ
     S : Term (ℕ ⇒ ℕ)
-    ℝ : Term (ℕ ⇒ α ⇒ (ℕ ⇒ α ⇒ α) ⇒ α)
+    ℝ : Term (α ⇒ (ℕ ⇒ α ⇒ α) ⇒ ℕ ⇒ α)
+    -- ℝ takes a starting value A, an accumulating function F and
+    -- a natural number N. It then calculates
+    -- ℝ(A, F, N) = F(N-1, F(N-2, F(... F(0, A)))).
     𝕂 : Term (α ⇒ β ⇒ α)
     𝕊 : Term ((α ⇒ β ⇒ γ) ⇒ (α ⇒ β) ⇒ (α ⇒ γ))
     _∙_ : Term (α ⇒ β) -> Term α -> Term β
@@ -43,15 +46,17 @@ private variable
 𝔹 : Term ((β ⇒ γ) ⇒ (α ⇒ β) ⇒ (α ⇒ γ))
 𝔹 = 𝕊 ∙ (𝕂 ∙ 𝕊) ∙ 𝕂
 
+𝓢[_] : Term (α ⇒ β ⇒ γ ⇒ δ) -> Term ((α ⇒ β ⇒ γ) ⇒ α ⇒ β ⇒ δ)
+𝓢[ t ] = 𝕊 ∙ (𝕊 ∙ (𝕂 ∙ 𝕊) ∙ t)
+
+𝓚[_] : Term α -> Term (β ⇒ γ ⇒ α)
+𝓚[ t ] = 𝕊 ∙ (𝕂 ∙ 𝕂) ∙ (𝕂 ∙ t)
+
 -- Using ℝ we can construct arithmetical functions:
 Add : Term (ℕ ⇒ ℕ ⇒ ℕ)
-Add = 𝕊 ∙ (𝕊 ∙ (𝕂 ∙ 𝕊) ∙ ℝ) ∙ (𝕂 ∙ (𝕂 ∙ (𝕂 ∙ S)))
+Add = 𝕊 ∙ (𝕂 ∙ (𝕊 ∙ (𝕊 ∙ ℝ ∙ (𝕂 ∙ (𝕂 ∙ S))))) ∙ 𝕂
 
-Mult : Term (ℕ ⇒ ℕ ⇒ ℕ)
-Mult = 𝕊 ∙ (𝕂 ∙ (𝕊 ∙ (𝕊 ∙ ℝ ∙ (𝕂 ∙ O)))) ∙ (𝕊 ∙ (𝕂 ∙ 𝕂) ∙ (𝕊 ∙ (𝕂 ∙ 𝕂) ∙ Add))
-
-Fact : Term (ℕ ⇒ ℕ)
-Fact = 𝕊 ∙ (𝕊 ∙ ℝ ∙ (𝕂 ∙ (S ∙ O))) ∙ (𝕂 ∙ (𝕊 ∙ (𝕂 ∙ Mult) ∙ S))
+-- Exercise: define multiplication and factorial.
 
 -- We need to define a set of normal forms.
 -- NF M means "M is in normal form".
@@ -78,8 +83,8 @@ data NF : Term α -> Set where
 infix 3 _~>_ _⟶₁_ _⟶_
 -- _~>_ describes redexes, i.e. terms that can be reduced directly.
 data _~>_ : Term α -> Term α -> Prop where
-    ℝ0 : ℝ ∙ O ∙ A ∙ B ~> A
-    ℝS : ℝ ∙ (S ∙ A) ∙ B ∙ C ~> C ∙ A ∙ (ℝ ∙ A ∙ B ∙ C)
+    ℝ0 : ℝ ∙ A ∙ B ∙ O ~> A
+    ℝS : ℝ ∙ B ∙ C ∙ (S ∙ A) ~> C ∙ A ∙ (ℝ ∙ B ∙ C ∙ A)
     𝕂 : 𝕂 ∙ A ∙ B ~> A
     𝕊 : 𝕊 ∙ A ∙ B ∙ C ~> (A ∙ C) ∙ (B ∙ C)
 
