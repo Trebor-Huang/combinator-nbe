@@ -1,5 +1,6 @@
 {-# OPTIONS --prop --postfix-projections --safe #-}
 module STLC.NbE where
+open import Agda.Builtin.Nat
 open import Data.Product using (Σ; _×_; _,_; proj₁; proj₂)
 open import Data.Unit using (⊤)
 
@@ -41,8 +42,12 @@ Neutral-ren : (ρ : Renaming Γ Δ) -> Neutral t -> Neutral (ren ρ t)
 Normal-ren : (ρ : Renaming Γ Δ) -> Normal t -> Normal (ren ρ t)
 Neutral-ren ρ (var v) = var (ρ v)
 Neutral-ren ρ (ν ∙ ν') = Neutral-ren ρ ν ∙ Normal-ren ρ ν'
+Neutral-ren ρ (Rec ν₁ ν₂ ν₃)
+    = Rec (Normal-ren ρ ν₁) (Normal-ren ρ ν₂) (Neutral-ren ρ ν₃)
 Normal-ren ρ (ntr ν) = ntr (Neutral-ren ρ ν)
 Normal-ren ρ (^ ν) = ^ Normal-ren (wren ρ ◃ᵣ 𝕫) ν
+Normal-ren ρ O = O
+Normal-ren ρ (S ν) = S (Normal-ren ρ ν)
 
 -- Renaming also preserves reduction.
 ~>-ren : (ρ : Renaming Γ Δ) -> s ~> t -> ren ρ s ~> ren ρ t
@@ -74,10 +79,15 @@ Normal-ren ρ (^ ν) = ^ Normal-ren (wren ρ ◃ᵣ 𝕫) ν
             ≡˘⟨ ren-ren _ _ s ⟩
                 ren (𝕤_ {β = α}) (ren ρ s)
             ∎
-        
+
         R : ren ρ s ~> ^ ren (wren ρ ◃ᵣ 𝕫) (ren 𝕤_ s) ∙ var 𝕫
         R rewrite eq = red η!
 
+-- These two are much easier because no binding is involved.
+~>-ren ρ (red ιₒ!) = red ιₒ!
+~>-ren ρ (red ιₛ!) = red ιₛ!
+
+-- These are just congruence closures.
 ~>-ren ρ (^ r) = ^ ~>-ren (wren ρ ◃ᵣ 𝕫) r
 ~>-ren ρ (r ~∙ _) = ~>-ren ρ r ~∙ _
 ~>-ren ρ (_ ∙~ r) = _ ∙~ ~>-ren ρ r
@@ -108,7 +118,7 @@ Red-≈ {α = α ⇒ β} R F ρ G = Red-≈ (map (_~∙ _ ⊚ ~>-ren ρ) R) (F �
 --  Term   ⊇   Normal‡   ⊇   Neutral   ⊇   Var
 
 -- ‡ Actually we use WN instead of Normal, to keep track of
--- the normalization path.
+-- the normalization path. So you may regard this as an extra middle layer.
 
 -- We first define a reify function to extract the normal form
 -- from the Red semantics. But during this stage, when dealing with
@@ -153,12 +163,43 @@ reflect {α = α ⇒ β} ν ρ F with reify F
 SubstRed : Substitution Γ Δ -> Set
 SubstRed σ = ∀ {α} (v : Var _ α) -> Red (σ v)
 
+-- To start a reduction, we supply the identity environment.
+Red-id : SubstRed {Γ = Γ} var
+Red-id v = reflect (var v)
+
 -- Now the final induction.
 ⟦_⟧ : ∀ (t : Term Γ α) {Δ} {σ : Substitution Γ Δ}
     -> SubstRed σ -> Red (sub σ t)
-⟦ var v ⟧ σ = σ v
 ⟦ t ∙ s ⟧ σ = subst (λ ⋆ -> Red (⋆ ∙ _)) (ren-id _) $
     (⟦ t ⟧ σ) id (⟦ s ⟧ σ)
+⟦ var v ⟧ σ = σ v
+⟦ O ⟧ σ = normal O
+⟦ S ⟧ σ ρ (wn ν R) = wn (S ν) (map (_ ∙~_) R)
+⟦ Rec ⟧ σ ρ₁ {s₁} F₁ ρ₂ {s₂} F₂ ρ₃ {s₃} w₃@(wn ν R)
+    with reify F₁ | reify {t = s₂} F₂
+    -- Agda inserts implicit arguments too early, so I have to mark this.
+... | w₁@(wn ν₁ R₁) | w₂@(wn ν₂ R₂) = ⟦Rec⟧ ν R
+    where
+        ⟦Rec⟧ : {s s' : Term _ ℕ} (ν : Normal s') (R : s ≈ s')
+            -> Red (Rec ∙ ren ρ₃ (ren ρ₂ s₁) ∙ ren ρ₃ s₂ ∙ s)
+        ⟦Rec⟧ (ntr ν) R = Red-≈  -- We first reduce the corresponding components.
+            -- Then we piece the reductions together.
+            ( map (_~∙ _ ⊚ _~∙ _ ⊚ _ ∙~_ ⊚ ~>-ren ρ₃ ⊚ ~>-ren ρ₂) (R₁ ⁻¹)
+            ⁀ map (_~∙ _ ⊚ _ ∙~_ ⊚ ~>-ren ρ₃) (R₂ ⁻¹)
+            ⁀ map (_ ∙~_) (R ⁻¹)) $ reflect $  -- And use reflect on the final neutral form.
+            Rec (Normal-ren ρ₃ (Normal-ren ρ₂ ν₁)) (Normal-ren ρ₃ ν₂) ν
+        ⟦Rec⟧ {s' = (S ∙ s₀)} (S ν) R = Red-≈ (red ιₛ! ⟵ map (_ ∙~_) (R ⁻¹)) ⟦Rec⟧S
+            where
+                eq : (Term _ _ ∋ ren ρ₃ s₂ ∙ s₀) ≡ ren id (ren ρ₃ s₂) ∙ ren id s₀
+                eq rewrite ren-id s₀ | ren-id (ren ρ₃ s₂) = refl
+
+                ⟦Rec⟧S : Red (ren ρ₃ s₂ ∙ s₀ ∙
+                    (Rec ∙ ren ρ₃ (ren ρ₂ s₁) ∙ ren ρ₃ s₂ ∙ s₀))
+                ⟦Rec⟧S rewrite eq = F₂ ρ₃ (wn ν refl) id (⟦Rec⟧ ν refl)
+
+        ⟦Rec⟧ O R = Red-≈ (red ιₒ! ⟵ map (_ ∙~_) (R ⁻¹))
+            (Red-ren ρ₃ (Red-ren ρ₂ F₁))
+
 ⟦ ^ t ⟧ {σ = σ₀} σ ρ {s = s} F = Red-≈ (red β! ⟵ refl) G
     where
         eqᵉ : (v : Var _ α)
@@ -213,10 +254,6 @@ SubstRed σ = ∀ {α} (v : Var _ α) -> Red (σ v)
 -- Bonus Exercise: You can make it even cleaner with a maximally
 -- restricted type. Can you see how?
 
--- To start a reduction, we supply the identity environment.
-Red-id : SubstRed {Γ = Γ} var
-Red-id v = reflect (var v)
-
 -- And the normalization function, which throws the proof away.
 normalize : Term Γ α -> Term Γ α
 normalize t = reify (⟦ t ⟧ Red-id) .nf
@@ -227,4 +264,8 @@ open benchmark
 nbe-eta = normalize bench-eta
 nbe-beta = normalize bench-beta  -- ^ ^ var 𝕫
 nbe-both = normalize bench-both  -- ^ ^ ^ var (𝕤 𝕤 𝕫) ∙ var (𝕤 𝕫) ∙ var 𝕫
+nbe-rec = normalize bench-rec  -- (# 720)
 -- Normalize them to see the result!
+
+nbe-rec-canon = canon (Normal-ℕ (reify (⟦ bench-rec ⟧ Red-id) .NF))
+-- This should evaluate to (720 : Nat)

@@ -1,5 +1,6 @@
 {-# OPTIONS --prop --postfix-projections --safe #-}
 module STLC.STLC where
+open import Agda.Builtin.Nat
 open import STLC.Equivalence
 open import combinator using (Type; ℕ; _⇒_) public
 
@@ -23,6 +24,12 @@ data Term : Context -> Type -> Set where
     var : Var Γ α -> Term Γ α
     ^_ : Term (Γ ◂ α) β -> Term Γ (α ⇒ β)
     _∙_ : Term Γ (α ⇒ β) -> Term Γ α -> Term Γ β
+    -- If you are reading this for the first time, you should
+    -- probably leave out anything concering the natural numbers.
+    -- After you are familiar with all this, add these three construts in.
+    O : Term Γ ℕ
+    S : Term Γ (ℕ ⇒ ℕ)
+    Rec : Term Γ (α ⇒ (ℕ ⇒ α ⇒ α) ⇒ ℕ ⇒ α)
 
 infixr 15 ^_
 infixl 16 _∙_
@@ -36,6 +43,12 @@ infixl 16 _∙_
 
 𝕊 : Term Γ ((α ⇒ β ⇒ γ) ⇒ (α ⇒ β) ⇒ (α ⇒ γ))
 𝕊 = ^ ^ ^ (var (𝕤 𝕤 𝕫) ∙ var 𝕫) ∙ (var (𝕤 𝕫) ∙ var 𝕫)
+
+-- Converting Agda Nats to the term language.
+infix 100 #_
+#_ : Nat -> Term Γ ℕ
+# zero = O
+# suc n = S ∙ # n
 
 -- A benchmark for normalization, will be used later.
 module benchmark where
@@ -66,6 +79,19 @@ module benchmark where
     bench-both : Term ∅ (Middle ⇒ Middle)
     bench-both = twice ∙ flip
 
+    -- Next we test the recursor.
+    add : Term Γ Middle
+    add = ^ ^ Rec ∙ var 𝕫 ∙ (^ S) ∙ var (𝕤 𝕫)
+
+    mult : Term Γ Middle
+    mult = ^ ^ Rec ∙ O ∙ (^ add ∙ var (𝕤 𝕫)) ∙ var (𝕤 𝕫)
+
+    fact : Term ∅ (ℕ ⇒ ℕ)
+    fact = ^ Rec ∙ (S ∙ O) ∙ (^ mult ∙ (S ∙ var 𝕫)) ∙ var 𝕫
+
+    bench-rec : Term ∅ ℕ
+    bench-rec = fact ∙ (# 6)
+
 -- We also demonstrate how to translate to SK-combinators.
 module SK-translation where
     -- To make induction go through, we also need variables.
@@ -73,6 +99,9 @@ module SK-translation where
         var : Var Γ α -> SK Γ α
         𝔎 : SK Γ (α ⇒ β ⇒ α)
         𝔖 : SK Γ ((α ⇒ β ⇒ γ) ⇒ (α ⇒ β) ⇒ (α ⇒ γ))
+        𝒪 : SK Γ ℕ
+        𝒮 : SK Γ (ℕ ⇒ ℕ)
+        ℜ : SK Γ (α ⇒ (ℕ ⇒ α ⇒ α) ⇒ ℕ ⇒ α)
         _∙_ : SK Γ (α ⇒ β) -> SK Γ α -> SK Γ β
     -- This corresponds to Hilbert style deduction systems,
     -- except that we have hypotheses (variables).
@@ -82,22 +111,31 @@ module SK-translation where
     deduction : SK (Γ ◂ α) β -> SK Γ (α ⇒ β)
     deduction (var 𝕫) = 𝔖 ∙ 𝔎 ∙ (𝔎 {β = ℕ})
     deduction (var (𝕤 v)) = 𝔎 ∙ var v
+    deduction (c ∙ c') = 𝔖 ∙ deduction c ∙ deduction c'
     deduction 𝔎 = 𝔎 ∙ 𝔎
     deduction 𝔖 = 𝔎 ∙ 𝔖
-    deduction (c ∙ c') = 𝔖 ∙ deduction c ∙ deduction c'
+    deduction 𝒪 = 𝔎 ∙ 𝒪
+    deduction 𝒮 = 𝔎 ∙ 𝒮
+    deduction ℜ = 𝔎 ∙ ℜ
 
     -- The translation.
     translate : Term Γ α -> SK Γ α
     translate (var v) = var v
     translate (^ t) = deduction (translate t)
     translate (t ∙ s) = translate t ∙ translate s
+    translate O = 𝒪
+    translate S = 𝒮
+    translate Rec = ℜ
 
     -- Now we can compile closed terms to the combinators defined
     -- previously:
     coerce : SK ∅ α -> combinator.Term α
+    coerce (c ∙ c') = coerce c combinator.∙ coerce c'
     coerce 𝔎 = combinator.𝕂
     coerce 𝔖 = combinator.𝕊
-    coerce (c ∙ c') = coerce c combinator.∙ coerce c'
+    coerce 𝒪 = combinator.O
+    coerce 𝒮 = combinator.S
+    coerce ℜ = combinator.ℝ
 
     compile : Term ∅ α -> combinator.Term α
     compile = coerce ∘ translate
@@ -124,6 +162,9 @@ ren : Renaming Γ Δ -> Function Γ Δ
 ren ρ (var v) = var (ρ v)
 ren ρ (^ t) = ^ ren (wren ρ ◃ᵣ 𝕫) t
 ren ρ (t ∙ s) = ren ρ t ∙ ren ρ s
+ren ρ O = O
+ren ρ S = S
+ren ρ Rec = Rec
 
 wsub : Substitution Γ Δ -> Substitution Γ (Δ ◂ α)
 wsub σ = ren 𝕤_ ∘ σ
@@ -137,6 +178,9 @@ sub : Substitution Γ Δ -> Function Γ Δ
 sub σ (var v) = σ v
 sub σ (^ t) = ^ sub (wsub σ ◃ₛ var 𝕫) t
 sub σ (t ∙ s) = sub σ t ∙ sub σ s
+sub σ O = O
+sub σ S = S
+sub σ Rec = Rec
 
 infix 10 𝕫:=_
 𝕫:=_ : Term Γ α -> Substitution (Γ ◂ α) Γ
@@ -144,8 +188,9 @@ infix 10 𝕫:=_
 
 -- Next, we define Normal terms.
 -- Naturally, a normal term is of the form
---   ^ ^ ^ ... (var v) ∙ ν₁ ∙ ν₂ ∙ ν₃ ...
+--   ^ ^ ^ ... v ∙ ν₁ ∙ ν₂ ∙ ν₃ ...
 -- where v is a variable, and νₙ are all normal forms.
+-- (Of course, we still have O, S and Rec to consider.)
 -- This breaks the definition up into two stages.
 data Neutral : Term Γ α -> Set
 data Normal : Term Γ α -> Set
@@ -153,13 +198,44 @@ data Normal : Term Γ α -> Set
 data Neutral where  -- Neutral terms are the inner part, without λs.
     var : (v : Var Γ α) -> Neutral (var v)
     _∙_ : Neutral s -> Normal t -> Neutral (s ∙ t)
+    Rec : {a : Term Γ α} {f : Term Γ _} {n : Term Γ ℕ}
+        -> Normal a -> Normal f -> Neutral n
+        -> Neutral (Rec ∙ a ∙ f ∙ n)
 
 data Normal where  -- Normal terms cap the λs up.
     ntr : {s : Term Γ ℕ} -> Neutral s -> Normal s
     -- Note the explicit type ascription (Term Γ ℕ).
     -- This means that a variable of type (ℕ ⇒ ℕ) is not normal!
     -- we need to eta-expand it into (λ x. f x).
+    S : Normal s -> Normal (S ∙ s)
+    O : Normal {Γ = Γ} O
     ^_ : Normal s -> Normal (^ s)
+-- We use ν for both normal and neutral terms. This can be disambiguated
+-- by the types.
+
+-- Natural numbers are normal:
+[#_] : (n : Nat) -> Normal {Γ = Γ} (# n)
+[# zero ] = O
+[# suc n ] = S [# n ]
+
+-- Normal natural numbers without variables are exactly of the form (# n).
+-- To prove this, we first prove that there are no neutral closed terms:
+Neutral-closed : {t : Term ∅ α} -> Neutral t -> ⊥
+Neutral-closed (ν ∙ _) = Neutral-closed ν
+Neutral-closed (Rec _ _ ν) = Neutral-closed ν
+
+-- We use a datatype to describe this:
+data Canonical : Term ∅ ℕ -> Set where
+    canonical : (n : Nat) -> Canonical (# n)
+canon : Canonical t -> Nat
+canon (canonical n) = n
+
+Normal-ℕ : Normal t -> Canonical t
+Normal-ℕ (ntr ν) with Neutral-closed ν
+... | ()
+Normal-ℕ (S ν) with Normal-ℕ ν
+... | canonical n = canonical (suc n)
+Normal-ℕ O = canonical zero
 
 -- Next, we define reduction.
 infix 3 _~>!_ _~>_ _≈_
@@ -168,6 +244,10 @@ data _~>!_ : Term Γ α -> Term Γ α -> Prop where
         -> (^ t) ∙ s ~>! sub (𝕫:= s) t
     η! : {t : Term Γ (α ⇒ β)}
         -> t ~>! ^ ren 𝕤_ t ∙ var 𝕫
+    ιₒ! : {t : Term Γ α} {s : Term _ _}
+        -> Rec ∙ t ∙ s ∙ O ~>! t
+    ιₛ! : {t : Term Γ α} {s : Term _ _} {n : Term _ _}
+        -> Rec ∙ t ∙ s ∙ (S ∙ n) ~>! s ∙ n ∙ (Rec ∙ t ∙ s ∙ n)
 -- We define these in Prop, because we won't use them for computation.
 
 -- Congruence closure:

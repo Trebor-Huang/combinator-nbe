@@ -31,6 +31,9 @@ renᵉ : {ρ ρ' : Renaming Γ Δ}
     -> (eq : ∀ {α} (v : Var Γ α) -> ρ v ≡ ρ' v)
     -> ∀ {α} (t : Term Γ α) -> ren ρ t ≡ ren ρ' t
 renᵉ eq (var v) rewrite eq v = refl
+renᵉ eq O = refl
+renᵉ eq S = refl
+renᵉ eq Rec = refl
 renᵉ eq (^ t) rewrite renᵉ (ren-auxᵉ eq) t = refl
 renᵉ eq (t ∙ s) rewrite renᵉ eq t | renᵉ eq s = refl
 
@@ -46,6 +49,9 @@ subᵉ : {σ σ' : Substitution Γ Δ}
     -> (eq : ∀ {α} (v : Var Γ α) -> σ v ≡ σ' v)
     -> ∀ {α} (t : Term Γ α) -> sub σ t ≡ sub σ' t
 subᵉ eq (var v) = eq v
+subᵉ eq O = refl
+subᵉ eq S = refl
+subᵉ eq Rec = refl
 subᵉ eq (^ t) rewrite subᵉ (sub-auxᵉ eq) t = refl
 subᵉ eq (t ∙ s) rewrite subᵉ eq t | subᵉ eq s = refl
 
@@ -61,6 +67,9 @@ private
     ren-idᵉ : {ρ : Renaming Γ Γ} (eq : ∀ {α} (v : Var Γ α) -> ρ v ≡ v) (t : Term Γ α)
         -> ren ρ t ≡ t
     ren-idᵉ eq (var v) rewrite eq v = refl
+    ren-idᵉ eq O = refl
+    ren-idᵉ eq S = refl
+    ren-idᵉ eq Rec = refl
     ren-idᵉ eq (^ t)
         rewrite ren-idᵉ (ren-id-auxᵉ eq) t = refl
     ren-idᵉ eq (t ∙ s) rewrite ren-idᵉ eq t | ren-idᵉ eq s = refl
@@ -78,6 +87,9 @@ private
     sub-varᵉ : {σ : Substitution Γ Γ} (eq : ∀ {α} (v : Var Γ α) -> σ v ≡ var v) (t : Term Γ α)
         -> sub σ t ≡ t
     sub-varᵉ eq (var v) rewrite eq v = refl
+    sub-varᵉ eq O = refl
+    sub-varᵉ eq S = refl
+    sub-varᵉ eq Rec = refl
     sub-varᵉ eq (^ t)
         rewrite sub-varᵉ (sub-var-auxᵉ eq) t = refl
     sub-varᵉ eq (t ∙ s) rewrite sub-varᵉ eq t | sub-varᵉ eq s = refl
@@ -104,6 +116,9 @@ private
         -> (∀ {α} (v : Var Γ α) -> σ (τ v) ≡ σ∘τ v)
         -> (t : Term Γ α) -> ren σ (ren τ t) ≡ ren σ∘τ t
     ren-renᵉ σ τ σ∘τ eq (var v) rewrite eq v = refl
+    ren-renᵉ σ τ σ∘τ eq O = refl
+    ren-renᵉ σ τ σ∘τ eq S = refl
+    ren-renᵉ σ τ σ∘τ eq Rec = refl
     ren-renᵉ σ τ σ∘τ eq (^ t)
         rewrite ren-renᵉ (wren σ ◃ᵣ 𝕫) (wren τ ◃ᵣ 𝕫) _
             (wren-ren-auxᵉ σ τ σ∘τ eq) t = refl
@@ -140,6 +155,9 @@ private
         -> (t : Term Γ α)
         -> ren ρ (sub σ t) ≡ sub renρ∘σ t
     ren-subᵉ ρ σ renρ∘σ eq (var v) = eq v
+    ren-subᵉ ρ σ renρ∘σ eq O = refl
+    ren-subᵉ ρ σ renρ∘σ eq S = refl
+    ren-subᵉ ρ σ renρ∘σ eq Rec = refl
     ren-subᵉ ρ σ renρ∘σ eq (^ t)
         rewrite ren-subᵉ
             (wren ρ ◃ᵣ 𝕫)
@@ -171,6 +189,9 @@ private
         -> (t : Term Γ α)
         -> sub σ (ren ρ t) ≡ sub σ∘ρ t
     sub-renᵉ σ ρ σ∘ρ eq (var v) = eq v
+    sub-renᵉ σ ρ σ∘ρ eq O = refl
+    sub-renᵉ σ ρ σ∘ρ eq S = refl
+    sub-renᵉ σ ρ σ∘ρ eq Rec = refl
     sub-renᵉ σ ρ σ∘ρ eq (^ t)
         rewrite sub-renᵉ
             (wsub σ ◃ₛ var 𝕫)
@@ -213,6 +234,9 @@ private
         -> (t : Term Γ α)
         -> sub τ (sub σ t) ≡ sub subτ∘σ t
     sub-subᵉ τ σ subτ∘σ eq (var v) = eq v
+    sub-subᵉ τ σ subτ∘σ eq O = refl
+    sub-subᵉ τ σ subτ∘σ eq S = refl
+    sub-subᵉ τ σ subτ∘σ eq Rec = refl
     sub-subᵉ τ σ subτ∘σ eq (^ t)
         rewrite sub-subᵉ
             (wsub τ ◃ₛ var 𝕫)

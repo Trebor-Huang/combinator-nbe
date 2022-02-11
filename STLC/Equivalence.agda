@@ -2,7 +2,8 @@
 module STLC.Equivalence where
 open import Agda.Primitive
 open import Agda.Builtin.Equality
-open import Function.Base using (_$_; _∘_; id) public
+open import Function.Base using (_$_; _∘_; id; _∋_) public
+open import Data.Empty using (⊥) public
 
 private variable
     ℓ ℓ' : Level
