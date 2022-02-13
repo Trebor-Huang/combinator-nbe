@@ -25,6 +25,8 @@ adjust the file cases according to this Readme.
 translate it into combinators, and defines relevant basic concepts.
 - `Substitution.agda` proves various substitution lemmas.
 - `NbE.agda` implements normalization by evaluation.
+- `Category.agda` contains partial result on STLC being a free CCC over the
+base types. I do not plan to complete it.
 
 --------
 
