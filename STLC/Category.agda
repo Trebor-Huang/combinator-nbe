@@ -1,6 +1,5 @@
 {-# OPTIONS --prop --postfix-projections --safe #-}
 module STLC.Category where
-open import Agda.Builtin.Equality using (_≡_; refl)
 open import Data.Sum using (_⊎_; inj₁; inj₂)
 
 open import STLC.Equivalence
@@ -26,19 +25,19 @@ compMor σ τ = sub τ ∘ σ
 
 -- To prevent Agda inserting implicit arguments.
 -- Also to avoid function extensionality.
-_==_ : Mor Γ Δ -> Mor Γ Δ -> Set
-σ == τ = ∀ {α} {v : Var _ α} -> σ v ≡ τ v
+_==_ : Mor Γ Δ -> Mor Γ Δ -> Prop
+σ == τ = ∀ {α} {v : Var _ α} -> σ v ≈ τ v
 infix 3 _==_
 
 idₗ : compMor idMor σ == σ
 idₗ = refl
 
 idᵣ : compMor σ idMor == σ
-idᵣ = sub-var _
+idᵣ {σ = σ} {v = v} rewrite sub-var (σ v) = refl
 
 assoc : compMor (compMor σ₁ σ₂) σ₃ == compMor σ₁ (compMor σ₂ σ₃)
 assoc {σ₁ = σ₁} {σ₂ = σ₂} {σ₃ = σ₃} {v = v}
-    = sub-sub σ₃ σ₂ (σ₁ v)
+    rewrite sub-sub σ₃ σ₂ (σ₁ v) = refl
 
 _×_ : Obj -> Obj -> Obj
 Γ × ∅ = Γ
@@ -62,7 +61,7 @@ private
     ... | inj₂ v = inj₂ (𝕤 v)
 
 π₁ : Mor (Γ × Δ) Γ
-π₁ {Δ = Δ₀} x = var (p₁ {Δ = Δ₀} x)
+π₁ {Δ = Δ} x = var (p₁ {Δ = Δ} x)
 
 π₂ : Mor (Γ × Δ) Δ
 π₂ v = var (p₂ v)
@@ -79,14 +78,23 @@ Telescope : Context -> Type -> Type
 Telescope ∅ α = α
 Telescope (Γ ◂ β) α = β ⇒ Telescope Γ α
 
-abs : Term (Δ × Γ) α -> Term Δ (Telescope Γ α)
-abs {Γ = ∅} t = t
-abs {Γ = Γ ◂ _} t = ^ abs t
+private
+    abs : Term (Δ × Γ) α -> Term Δ (Telescope Γ α)
+    abs {Γ = ∅} t = t
+    abs {Γ = Γ ◂ _} t = ^ abs t
+
+    app : Term Δ (Telescope Γ α) -> Term (Δ × Γ) α
+    app {Γ = ∅} t = t
+    app {Γ = Γ ◂ _} t = app {Γ = Γ} (ren 𝕤_ t ∙ var 𝕫)
 
 Hom : Obj -> Obj -> Obj
 Hom Γ ∅ = ∅
 Hom Γ (Δ ◂ α) = Hom Γ Δ ◂ Telescope Γ α
 
 uncurry : Mor Γ (Hom Ξ Δ) -> Mor (Γ × Ξ) Δ
-uncurry {Ξ = Ξ} σ 𝕫 = {!   !}
-uncurry σ (𝕤 p) = uncurry (σ ∘ 𝕤_) p
+uncurry σ 𝕫 = app (σ 𝕫)
+uncurry σ (𝕤 v) = uncurry (σ ∘ 𝕤_) v
+
+curry : Mor (Γ × Ξ) Δ -> Mor Γ (Hom Ξ Δ)
+curry {Δ = Δ ◂ _} σ 𝕫 = abs (σ 𝕫)
+curry {Δ = Δ ◂ _} σ (𝕤 v) = curry (σ ∘ 𝕤_) v

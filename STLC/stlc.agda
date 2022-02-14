@@ -140,7 +140,7 @@ module SK-translation where
     compile : Term ∅ α -> combinator.Term α
     compile = coerce ∘ translate
 
-variable
+private variable
     s t u v : Term Γ α
 
 -- Next, we define basic term manipulations.

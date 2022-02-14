@@ -17,6 +17,7 @@ open WN using (nf; NF; Conv)
 private variable
     α β γ : Type
     Γ Δ : Context
+    t s : Term Γ α
 
 -- Similar to our combinators, we define a reducible predicate.
 -- Unlike combinators which has no contexts, we introduce an
