@@ -3,75 +3,134 @@ module SystemF.SystemF where
 open import Agda.Builtin.Equality
 open import Data.Nat.Base using (ℕ; zero; suc)
 open import Data.Fin.Base using (Fin; zero; suc)
-
-TypeContext = ℕ
-TypeVar = Fin
+open import Function.Base using (id; _∘_)
 
 variable
-    Ω Ω' : TypeContext
+    m n : ℕ
+    i j : Fin n
 
-data Context : TypeContext -> Set
-data Type : TypeContext -> Set
+data Raw : ℕ -> Set where
+    var : Fin n -> Raw n
+    Π_∙_ : Raw n -> Raw (suc n) -> Raw n
+    ^_∙_ : Raw n -> Raw (suc n) -> Raw n
+    _∙_ : Raw n -> Raw n -> Raw n
+    ⋆ □ : Raw n
+
+data _⊆_ : ℕ -> ℕ -> Set where
+    stop : 0 ⊆ 0
+    keep : m ⊆ n -> suc m ⊆ suc n
+    drop : m ⊆ n -> m ⊆ suc n
+
+⊆-id : ∀ m -> m ⊆ m
+⊆-id zero = stop
+⊆-id (suc m) = keep (⊆-id m)
+
+↑ : m ⊆ suc m
+↑ = drop (⊆-id _)
+
+[_] : m ⊆ n -> Fin m -> Fin n
+[ keep ρ ] zero = zero
+[ keep ρ ] (suc i) = suc ([ ρ ] i)
+[ drop ρ ] i = suc ([ ρ ] i)
+
+ren : m ⊆ n -> Raw m -> Raw n
+ren ρ (var i) = var ([ ρ ] i)
+ren ρ (Π s ∙ t) = Π ren ρ s ∙ ren (keep ρ) t
+ren ρ (^ s ∙ t) = ^ ren ρ s ∙ ren (keep ρ) t
+ren ρ (t ∙ s) = ren ρ t ∙ ren ρ s
+ren ρ ⋆ = ⋆
+ren ρ □ = □
+
+Sub : ℕ -> ℕ -> Set
+Sub m n = Fin m -> Raw n
+
+infixl 5 _≪_
+_≪_ : Sub m n -> Raw n -> Sub (suc m) n
+(ρ ≪ t) zero = t
+(ρ ≪ t) (suc i) = ρ i
+
+sub : Sub m n -> Raw m -> Raw n
+sub ρ (var i) = ρ i
+sub ρ (Π s ∙ t) = Π sub ρ s ∙ sub (ren ↑ ∘ ρ ≪ var zero) t
+sub ρ (^ s ∙ t) = ^ sub ρ s ∙ sub (ren ↑ ∘ ρ ≪ var zero) t
+sub ρ (t ∙ s) = sub ρ t ∙ sub ρ s
+sub ρ ⋆ = ⋆
+sub ρ □ = □
+
+𝕫/ : Raw m -> Sub (suc m) m
+𝕫/ t = var ∘ [ ⊆-id _ ] ≪ t
+
+data Sort {n} : Raw n -> Set where
+    instance ⋆ : Sort ⋆
+    instance □ : Sort □
+
+data Axiom {n} : Raw n -> Raw n -> Set where
+    instance ⋆:□ : Axiom ⋆ □
+
+data Product {n} : Raw n -> Raw (suc n) -> Raw n -> Set where
+    instance func : Product ⋆ ⋆ ⋆
+
+infixr 10 Π_∙_ ^_∙_
+infixl 15 _∙_
+
+data Context : ℕ -> Set where
+    ∅ : Context 0
+    _◂_ : Context n -> Raw n -> Context (suc n)
+infixl 5 _◂_
 
 variable
-    Γ Δ : Context Ω
-    α β : Type Ω
+    Γ Δ : Context n
+    s s₁ s₂ s₃ t t₁ t₂ t₃ : Raw n
 
-infixl 5 _◂_ _⋆
-data Context where
-    ∅ : Context Ω
-    _◂_ : (Γ : Context Ω) -> Type Ω -> Context Ω
-    _⋆ : Context Ω -> Context (suc Ω)
+infix 3 _⊢ctx _⊢_∈_
 
-infixr 6 Π_
-infixr 7 _⇒_
-data Type where
-    var : TypeVar Ω -> Type Ω
-    Π_ : Type (suc Ω) -> Type Ω
-    _⇒_ : Type Ω -> Type Ω -> Type Ω
+data _⊢ctx : Context n -> Prop
+data _⊢_∈_ : (Γ : Context n) -> Raw n -> Raw n -> Prop
 
-Rent Subt Funt : TypeContext -> TypeContext -> Set
-Rent Ω' Ω = TypeVar Ω -> TypeVar Ω'
-Subt Ω' Ω = TypeVar Ω -> Type Ω'
-Funt Ω' Ω = Type Ω    -> Type Ω'
+data _⊢ctx where
+    ∅ : ∅ ⊢ctx
+    _◂[_]_ : ∀ {Γ : Context n} -> Γ ⊢ctx
+        -> ∀ s ⦃ _ : Sort s ⦄
+        -> ∀ {t} -> Γ ⊢ t ∈ s
+        -> Γ ◂ t ⊢ctx
 
-wrent : Rent Ω' Ω -> Rent (suc Ω') (suc Ω)
-wrent ρ zero = zero
-wrent ρ (suc i) = suc (ρ i)
+data Var : Context n -> Fin n -> Raw n -> Prop where
+    𝕫 : Γ ⊢ctx
+        -> ∀ s ⦃ _ : Sort s ⦄
+        -> ∀ {t} -> Γ ⊢ t ∈ s
+        -> Var (Γ ◂ t) zero (ren ↑ t)
+    𝕤 : Var Γ i t
+        -> ∀ s ⦃ _ : Sort s ⦄
+        -> ∀ {t'} -> Γ ⊢ t' ∈ s
+        -> Var (Γ ◂ t') (suc i) (ren ↑ t)
 
-rent : Rent Ω' Ω -> Funt Ω' Ω
-rent ρ (var i) = var (ρ i)
-rent ρ (Π α) = Π rent (wrent ρ) α
-rent ρ (α ⇒ β) = rent ρ α ⇒ rent ρ β
+data _⊢_∈_ where
+    axiom : ⦃ Axiom s₁ s₂ ⦄
+        -> Γ ⊢ctx
+        -> Γ ⊢ s₁ ∈ s₂
+    var : Var Γ i t -> Γ ⊢ var i ∈ t
+    prod : Γ ⊢ t ∈ s₁
+        -> Γ ◂ t ⊢ s ∈ s₂
+        -> ⦃ Product s₁ s₂ s₃ ⦄
+        -> Γ ⊢ Π t ∙ s ∈ s₃
+    abs : Γ ◂ t₁ ⊢ s ∈ t₂
+        -> Γ ⊢ Π t₁ ∙ t₂ ∈ s₁
+        -> Γ ⊢ ^ t₁ ∙ s ∈ Π t₁ ∙ t₂
+    app : Γ ⊢ t ∈ Π t₁ ∙ t₂
+        -> Γ ⊢ s ∈ t₁
+        -> Γ ⊢ t ∙ s ∈ sub (𝕫/ s) t₂
 
-wsubt : Subt Ω' Ω -> Subt (suc Ω') (suc Ω)
-wsubt σ zero = var zero
-wsubt σ (suc i) = rent suc (σ i)
+infixr 13 _⇒_
+_⇒_ : Raw n -> Raw n -> Raw n
+t ⇒ s = Π t ∙ ren ↑ s
 
-subt : Subt Ω' Ω -> Funt Ω' Ω
-subt σ (var i) = σ i
-subt σ (Π α) = Π subt (wsubt σ) α
-subt σ (α ⇒ β) = subt σ α ⇒ subt σ β
+𝕀 : Raw 1
+𝕀 = ^ var zero ∙ var zero
 
-extt : Type Ω -> Subt Ω (suc Ω)
-extt α zero = α
-extt α (suc i) = var i
-
-data Var : (Γ : Context Ω) -> Type Ω -> Set where
-    𝕫 : Var (Γ ◂ α) α
-    𝕤_ : Var Γ α -> Var (Γ ◂ β) α
-    𝕊_ : Var Γ α -> Var (Γ ⋆) (rent suc α)
-
-infixr 15 Λ_ ^_
-infixl 20 _!_ _∙_
-data Term : (Γ : Context Ω) -> Type Ω -> Set where
-    var : Var Γ α -> Term Γ α
-    Λ_ : Term (Γ ⋆) α -> Term Γ (Π α)
-    ^_ : Term (Γ ◂ α) β -> Term Γ (α ⇒ β)
-    _!_ : Term {Ω = Ω} Γ (Π α)
-        -> (β : Type Ω)
-        -> Term Γ (subt (extt β) α)
-    _∙_ : Term Γ (α ⇒ β) -> Term Γ α -> Term Γ β
-
-𝔎 : Term Γ (Π Π var (suc zero) ⇒ var zero ⇒ var (suc zero))
-𝔎 = Λ Λ ^ ^ var (𝕤 𝕫)
+ℑ : ∅ ◂ ⋆ ⊢ 𝕀 ∈ var zero ⇒ var zero
+ℑ = abs
+    (var (𝕫 (∅ ◂[ □ ] (axiom ∅)) ⋆
+        (var (𝕫 ∅ □ (axiom ∅)))))
+    (prod (var (𝕫 ∅ □ (axiom ∅)))
+        (var (𝕤 (𝕫 ∅ □ (axiom ∅)) ⋆
+            (var (𝕫 ∅ □ (axiom ∅))))))
