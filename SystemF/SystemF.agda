@@ -69,6 +69,7 @@ data Axiom {n} : Raw n -> Raw n -> Set where
 
 data Product {n} : Raw n -> Raw (suc n) -> Raw n -> Set where
     instance func : Product ⋆ ⋆ ⋆
+    instance poly : Product □ ⋆ ⋆
 
 infixr 10 Π_∙_ ^_∙_
 infixl 15 _∙_
@@ -80,12 +81,15 @@ infixl 5 _◂_
 
 variable
     Γ Δ : Context n
-    s s₁ s₂ s₃ t t₁ t₂ t₃ : Raw n
+    s s₁ s₂ s₃ t t₁ t₂ t₃ u v w : Raw n
 
-infix 3 _⊢ctx _⊢_∈_
+infix 3 _⊢ctx _⊢_∈_ _⊢_~>_∈_ _⊢_⟶_∈_ _⊢_==_∈_
 
 data _⊢ctx : Context n -> Prop
 data _⊢_∈_ : (Γ : Context n) -> Raw n -> Raw n -> Prop
+data _⊢_~>_∈_ : (Γ : Context n) -> Raw n -> Raw n -> Raw n -> Prop
+data _⊢_⟶_∈_ : (Γ : Context n) -> Raw n -> Raw n -> Raw n -> Prop
+data _⊢_==_∈_ (Γ : Context n) : Raw n -> Raw n -> Raw n -> Prop
 
 data _⊢ctx where
     ∅ : ∅ ⊢ctx
@@ -95,8 +99,7 @@ data _⊢ctx where
         -> Γ ◂ t ⊢ctx
 
 data Var : Context n -> Fin n -> Raw n -> Prop where
-    𝕫 : Γ ⊢ctx
-        -> ∀ s ⦃ _ : Sort s ⦄
+    𝕫 : ∀ s ⦃ _ : Sort s ⦄
         -> ∀ {t} -> Γ ⊢ t ∈ s
         -> Var (Γ ◂ t) zero (ren ↑ t)
     𝕤 : Var Γ i t
@@ -111,7 +114,7 @@ data _⊢_∈_ where
     var : Var Γ i t -> Γ ⊢ var i ∈ t
     prod : Γ ⊢ t ∈ s₁
         -> Γ ◂ t ⊢ s ∈ s₂
-        -> ⦃ Product s₁ s₂ s₃ ⦄
+        -> ⦃ _ : Product s₁ s₂ s₃ ⦄
         -> Γ ⊢ Π t ∙ s ∈ s₃
     abs : Γ ◂ t₁ ⊢ s ∈ t₂
         -> Γ ⊢ Π t₁ ∙ t₂ ∈ s₁
@@ -119,18 +122,55 @@ data _⊢_∈_ where
     app : Γ ⊢ t ∈ Π t₁ ∙ t₂
         -> Γ ⊢ s ∈ t₁
         -> Γ ⊢ t ∙ s ∈ sub (𝕫/ s) t₂
+    conv : Γ ⊢ t ∈ s₁
+        -> Γ ⊢ s₁ == s₂ ∈ s
+        -> Γ ⊢ t ∈ s₂
+
+data _⊢_~>_∈_ where
+    β! : Γ ◂ u ⊢ t ∈ v
+        -> Γ ⊢ s ∈ u
+        -> Γ ⊢ (^ u ∙ t) ∙ s ~> sub (𝕫/ s) t ∈ sub (𝕫/ s) v
+    η! : Γ ⊢ t ∈ Π u ∙ v
+        -> Γ ⊢ t ~> (^ u ∙ (ren ↑ t ∙ var zero)) ∈ Π u ∙ v
+
+data _⊢_⟶_∈_ where
+    red : Γ ◂ u ⊢ t ∈ v
+        -> Γ ⊢ s₁ ~> s₂ ∈ u
+        -> Γ ⊢ sub (𝕫/ s₁) t ⟶ sub (𝕫/ s₂) t ∈ sub (𝕫/ s₁) v
+
+data _⊢_==_∈_ Γ where
+    step : Γ ⊢ t₁ ⟶ t₂ ∈ u
+        -> Γ ⊢ t₁ == t₂ ∈ u
+    refl : Γ ⊢ t ∈ u
+        -> Γ ⊢ t == t ∈ u
+    symm : Γ ⊢ t == s ∈ u
+        -> Γ ⊢ s == t ∈ u
+    tran : Γ ⊢ s₁ == s₂ ∈ u
+        -> Γ ⊢ s₂ == s₃ ∈ u
+        -> Γ ⊢ s₁ == s₂ ∈ u
+    conv : Γ ⊢ t₁ == t₂ ∈ u
+        -> Γ ⊢ u == v ∈ s
+        -> Γ ⊢ t₁ == t₂ ∈ v
 
 infixr 13 _⇒_
 _⇒_ : Raw n -> Raw n -> Raw n
 t ⇒ s = Π t ∙ ren ↑ s
 
-𝕀 : Raw 1
-𝕀 = ^ var zero ∙ var zero
+ℐ : Raw 1
+ℐ = ^ var zero ∙ var zero
 
-ℑ : ∅ ◂ ⋆ ⊢ 𝕀 ∈ var zero ⇒ var zero
-ℑ = abs
-    (var (𝕫 (∅ ◂[ □ ] (axiom ∅)) ⋆
-        (var (𝕫 ∅ □ (axiom ∅)))))
-    (prod (var (𝕫 ∅ □ (axiom ∅)))
-        (var (𝕤 (𝕫 ∅ □ (axiom ∅)) ⋆
-            (var (𝕫 ∅ □ (axiom ∅))))))
+𝐼 : ∅ ◂ ⋆ ⊢ ℐ ∈ var zero ⇒ var zero
+𝐼 = let α = 𝕫 □ (axiom ∅) in
+    abs
+        (var (𝕫 ⋆ (var α)))
+        (prod (var α) (var (𝕤 α ⋆ (var α))))
+
+𝓘 : Raw 0
+𝓘 = ^ ⋆ ∙ ℐ
+
+𝑰 : ∅ ⊢ 𝓘 ∈ Π ⋆ ∙ var zero ⇒ var zero
+𝑰 = let α = 𝕫 □ (axiom ∅) in
+    abs 𝐼 (prod {s₁ = □} (axiom ∅)
+        (prod (var α)
+            (var (𝕤 α ⋆
+                (var α)))))
