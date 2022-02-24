@@ -25,8 +25,9 @@ adjust the file cases according to this Readme.
 translate it into combinators, and defines relevant basic concepts.
 - `Substitution.agda` proves various substitution lemmas.
 - `NbE.agda` implements normalization by evaluation.
-- `Category.agda` contains partial result on STLC being a free CCC over the
-base types. I do not plan to complete it.
+- `Category.agda` packs up everything we proved in previous files step by
+step into a neat, categorical language, as described in Chapter 4, Sections 1-2
+of Jonathan Sterling's thesis *First Steps in Synthetic Tait Computability*.
 
 --------
 

@@ -1,8 +1,6 @@
 {-# OPTIONS --prop --postfix-projections --safe #-}
 module STLC.NbE where
 open import Agda.Builtin.Nat
-open import Data.Product using (Σ; _×_; _,_; proj₁; proj₂)
-open import Data.Unit using (⊤)
 
 open import STLC.Equivalence
 open import STLC.STLC
@@ -37,64 +35,66 @@ Red {α = ℕ} t = WN t
 Red {α = α ⇒ β} t = ∀ {Δ} (ρ : Renaming _ Δ) ->
     ∀ {s} -> Red s -> Red (ren ρ t ∙ s)
 
--- Special status is given to renaming, because it has the good property
--- that renaming turns normal forms into normal forms.
-Neutral-ren : (ρ : Renaming Γ Δ) -> Neutral t -> Neutral (ren ρ t)
-Normal-ren : (ρ : Renaming Γ Δ) -> Normal t -> Normal (ren ρ t)
-Neutral-ren ρ (var v) = var (ρ v)
-Neutral-ren ρ (ν ∙ ν') = Neutral-ren ρ ν ∙ Normal-ren ρ ν'
-Neutral-ren ρ (Rec ν₁ ν₂ ν₃)
-    = Rec (Normal-ren ρ ν₁) (Normal-ren ρ ν₂) (Neutral-ren ρ ν₃)
-Normal-ren ρ (ntr ν) = ntr (Neutral-ren ρ ν)
-Normal-ren ρ (^ ν) = ^ Normal-ren (wren ρ ◃ᵣ 𝕫) ν
-Normal-ren ρ O = O
-Normal-ren ρ (S ν) = S (Normal-ren ρ ν)
+-- We now extend some colloraries of renaming concerning reductions.
+module _ where
+    -- Special status is given to renaming, because it has the good property
+    -- that renaming turns normal forms into normal forms.
+    Neutral-ren : (ρ : Renaming Γ Δ) -> Neutral t -> Neutral (ren ρ t)
+    Normal-ren : (ρ : Renaming Γ Δ) -> Normal t -> Normal (ren ρ t)
+    Neutral-ren ρ (var v) = var (ρ v)
+    Neutral-ren ρ (ν ∙ ν') = Neutral-ren ρ ν ∙ Normal-ren ρ ν'
+    Neutral-ren ρ (Rec ν₁ ν₂ ν₃)
+        = Rec (Normal-ren ρ ν₁) (Normal-ren ρ ν₂) (Neutral-ren ρ ν₃)
+    Normal-ren ρ (ntr ν) = ntr (Neutral-ren ρ ν)
+    Normal-ren ρ (^ ν) = ^ Normal-ren (wren ρ ◃ᵣ 𝕫) ν
+    Normal-ren ρ O = O
+    Normal-ren ρ (S ν) = S (Normal-ren ρ ν)
 
--- Renaming also preserves reduction.
-~>-ren : (ρ : Renaming Γ Δ) -> s ~> t -> ren ρ s ~> ren ρ t
-~>-ren ρ (red (β! {t = t} {s = s})) = R
-    where
-        eq : _
-        eq =
-            begin
-                ren ρ (sub (𝕫:= s) t)
-            ≡⟨ ren-sub _ _ t ⟩
-                sub (ren ρ ∘ (𝕫:= s)) t
-            ≡˘⟨ subᵉ (ren-𝕫:= ρ s) t ⟩
-                sub ((var ◃ₛ ren ρ s) ∘ (wren ρ ◃ᵣ 𝕫)) t
-            ≡˘⟨ sub-ren _ _ t ⟩
-                sub (𝕫:= ren ρ s) (ren (wren ρ ◃ᵣ 𝕫) t)
-            ∎
+    -- Renaming also preserves reduction.
+    ~>-ren : (ρ : Renaming Γ Δ) -> s ~> t -> ren ρ s ~> ren ρ t
+    ~>-ren ρ (red (β! {t = t} {s = s})) = R
+        where
+            eq : _
+            eq =
+                begin
+                    ren ρ (sub (𝕫:= s) t)
+                ≡⟨ ren-sub _ _ t ⟩
+                    sub (ren ρ ∘ (𝕫:= s)) t
+                ≡˘⟨ subᵉ (ren-𝕫:= ρ s) t ⟩
+                    sub ((var ◃ₛ ren ρ s) ∘ (wren ρ ◃ᵣ 𝕫)) t
+                ≡˘⟨ sub-ren _ _ t ⟩
+                    sub (𝕫:= ren ρ s) (ren (wren ρ ◃ᵣ 𝕫) t)
+                ∎
 
-        R : ren ρ ((^ t) ∙ s) ~> ren ρ (sub (𝕫:= s) t)
-        R rewrite eq = red β!
+            R : ren ρ ((^ t) ∙ s) ~> ren ρ (sub (𝕫:= s) t)
+            R rewrite eq = red β!
 
-~>-ren {s = s} ρ (red (η! {α = α})) = R
-    where
-        eq : _
-        eq =
-            begin
-                ren (wren ρ ◃ᵣ 𝕫) (ren 𝕤_ s)
-            ≡⟨ ren-ren _ _ s ⟩
-                ren (𝕤_ ∘ ρ) s
-            ≡˘⟨ ren-ren _ _ s ⟩
-                ren (𝕤_ {β = α}) (ren ρ s)
-            ∎
+    ~>-ren {s = s} ρ (red (η! {α = α})) = R
+        where
+            eq : _
+            eq =
+                begin
+                    ren (wren ρ ◃ᵣ 𝕫) (ren 𝕤_ s)
+                ≡⟨ ren-ren _ _ s ⟩
+                    ren (𝕤_ ∘ ρ) s
+                ≡˘⟨ ren-ren _ _ s ⟩
+                    ren (𝕤_ {β = α}) (ren ρ s)
+                ∎
 
-        R : ren ρ s ~> ^ ren (wren ρ ◃ᵣ 𝕫) (ren 𝕤_ s) ∙ var 𝕫
-        R rewrite eq = red η!
+            R : ren ρ s ~> ^ ren (wren ρ ◃ᵣ 𝕫) (ren 𝕤_ s) ∙ var 𝕫
+            R rewrite eq = red η!
 
--- These two are much easier because no binding is involved.
-~>-ren ρ (red ιₒ!) = red ιₒ!
-~>-ren ρ (red ιₛ!) = red ιₛ!
+    -- These two are much easier because no binding is involved.
+    ~>-ren ρ (red ιₒ!) = red ιₒ!
+    ~>-ren ρ (red ιₛ!) = red ιₛ!
 
--- These are just congruence closures.
-~>-ren ρ (^ r) = ^ ~>-ren (wren ρ ◃ᵣ 𝕫) r
-~>-ren ρ (r ~∙ _) = ~>-ren ρ r ~∙ _
-~>-ren ρ (_ ∙~ r) = _ ∙~ ~>-ren ρ r
+    -- These are just congruence closures.
+    ~>-ren ρ (^ r) = ^ ~>-ren (wren ρ ◃ᵣ 𝕫) r
+    ~>-ren ρ (r ~∙ _) = ~>-ren ρ r ~∙ _
+    ~>-ren ρ (_ ∙~ r) = _ ∙~ ~>-ren ρ r
 
-WN-ren : (ρ : Renaming Γ Δ) -> WN t -> WN (ren ρ t)
-WN-ren ρ (wn ν R) = wn (Normal-ren ρ ν) (map (~>-ren ρ) R)
+    WN-ren : (ρ : Renaming Γ Δ) -> WN t -> WN (ren ρ t)
+    WN-ren ρ (wn ν R) = wn (Normal-ren ρ ν) (map (~>-ren ρ) R)
 
 Red-ren : (ρ : Renaming Γ Δ) {t : Term Γ α} -> Red t -> Red (ren ρ t)
 Red-ren {α = ℕ} ρ F = WN-ren ρ F
